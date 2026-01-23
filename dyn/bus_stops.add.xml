@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-09-15 18:38:03 by Eclipse SUMO netedit Version 1.23.1
+-->
+
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <!-- StoppingPlaces -->
+    <busStop id="bs_1" name="Hansemannplatz" lane="4444385#2_0" startPos="30.28" endPos="40.28"/>
+    <busStop id="bs_2" name="Eurogress" lane="259882555_0" startPos="156.21" endPos="166.21"/>
+    <busStop id="bs_3" name="Ehrenmal/Lousberg" lane="4444387#0_0" startPos="257.58" endPos="267.58"/>
+    <busStop id="bs_4" name="Ponttor" lane="35872865_0" startPos="81.69" endPos="91.69"/>
+</additional>
