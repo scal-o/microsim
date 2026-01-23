@@ -1,0 +1,19 @@
+[project]
+name = "microsim"
+version = "0.1.0"
+description = "Packages and data used for the Microscopic Traffic Simulation project"
+readme = "README.md"
+authors = [
+    { name = "scal-o", email = "alex.scalese@virgilio.it" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.workspace]
+members = [
+    "calibration",
+]

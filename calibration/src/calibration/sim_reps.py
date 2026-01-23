@@ -1,19 +1,18 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import seaborn.objects as so
 from pathlib import Path
 
-OUTPUT_DIR = Path("conf/peak_sim_output")
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import seaborn.objects as so
+
+INPUT_DIR = Path("data")
+OUTPUT_DIR = Path("results")
 
 sns.set_theme(style="whitegrid")
 so.Plot.config.theme.update(sns.axes_style("whitegrid"))
 
 # read dataframe data from test counts
-data = pd.read_csv(
-    OUTPUT_DIR / "unified_detector_counts.csv", sep=",", header=None
-)
+data = pd.read_csv(INPUT_DIR / "t_test_counts100.csv", sep=",", header=None)
 data = data.drop([0], axis=0)
 data = data.drop([0], axis=1)
 
@@ -69,7 +68,7 @@ for n, t in zip(t_n, t_values):
         y="Number of detectors",
         title="Detectors with significant results (97.5%)",
     )
-    .save(OUTPUT_DIR / "stat_signif.png")
+    .save(OUTPUT_DIR / "plots" / "stat_signif.png")
 )
 
 s_mean = stats["mean"].mean()
@@ -93,7 +92,7 @@ filt_pos_n = [filt_stats[f"{n}"].sum() for n in t_n]
         y="Number of detectors",
         title="Detectors (5th percentile +) with significant results (97.5%)",
     )
-    .save(OUTPUT_DIR / "stat_signif_reduced.png")
+    .save(OUTPUT_DIR / "plots" / "stat_signif_reduced.png")
 )
 
 
