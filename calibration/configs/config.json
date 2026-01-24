@@ -1,5 +1,5 @@
 {
-    "NETWORK": "H:/microsim/code/data/Aachen",
+    "NETWORK": "H:/microsim/code/data",
     "RESULTS": "H:/microsim/code/results/simulations",
     "CACHE": "H:/microsim/code/cache",
     "SUMO": "H:/microsim/code/.venv/Lib/site-packages/sumo"
