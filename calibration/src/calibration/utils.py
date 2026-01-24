@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,13 @@ def load_spsa_config(
     conf_dict: dict[str, Path] = {}
     for k, v in config.items():
         conf_dict[k] = Path(v)
+
+    # load sumo home env var
+    if "SUMO_HOME" not in os.environ:
+        if "SUMO" not in config:
+            raise EnvironmentError("SUMO_HOME environment variable not set.")
+        else:
+            os.environ["SUMO_HOME"] = str(config["SUMO"])
 
     sim_setup = Path(sim_setup) if isinstance(sim_setup, str) else sim_setup
     sim_setup = json.load(open(sim_setup))
@@ -97,4 +105,4 @@ def od_to_file(config: dict[str, Path], sim_setup: dict[str, str], od_matrix: pd
 
     with open(file_name, "w") as f:
         f.write(header_text)
-        od_matrix.to_csv(file_name, header=False, index=False, sep=" ")
+        od_matrix.to_csv(f, header=False, index=False, sep=" ")
