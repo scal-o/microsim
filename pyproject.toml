@@ -17,3 +17,11 @@ build-backend = "uv_build"
 members = [
     "calibration",
 ]
+
+[dependency-groups]
+dev = [
+    "dvc>=3.66.1",
+    "ipython>=9.9.0",
+    "ruff>=0.14.14",
+    "ty>=0.0.13",
+]
