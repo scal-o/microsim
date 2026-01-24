@@ -6,6 +6,6 @@
     "prior_od": "Start_od_8_9.txt",
     "starttime": 8,
     "endtime": 9,
-    "n_sumo_replicate": 1,
+    "n_sumo_replicate": 15,
     "loop_data": "true_data_8_9.csv"
 }
