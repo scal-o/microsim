@@ -59,7 +59,65 @@ def load_spsa_config(
     return conf_dict, sim_setup, spsa_setup
 
 
-def od_to_matrix(od_vector: np.ndarray):
+def load_start_od(config: dict[str, Path], sim_setup: dict[str, str]) -> pd.DataFrame:
+    """
+    Load the initial/prior OD matrix from a text file.
+
+    Parameters
+    ----------
+    config: dictionary containing config params
+    sim_setup: dictionary containing sim params
+
+    Returns
+    -------
+    od_matrix: Pandas DataFrame containing the initial/prior OD matrix
+
+    """
+    file_name = config["NETWORK"] / sim_setup["prior_od"]
+    od_matrix = pd.read_csv(
+        file_name,
+        sep=r"\s+",
+        header=None,
+        skiprows=5,
+    )
+
+    return od_matrix
+
+
+def load_true_counts(config: dict[str, Path], sim_setup: dict[str, str]) -> pd.DataFrame:
+    """
+    Load the true loop counts from a text file.
+
+    Parameters
+    ----------
+    config: dictionary containing config params
+    sim_setup: dictionary containing sim params
+
+    Returns
+    -------
+    true_counts: Pandas DataFrame containing the true loop counts
+
+    """
+    file_name = config["NETWORK"] / sim_setup["loop_data"]
+    true_counts = pd.read_csv(file_name, header=None)
+    true_counts.columns = ["label", "true_counts", "true_speeds", "true_density"]  # for counts
+    true_counts = true_counts.set_index("label")
+    true_counts.index = true_counts.index.map(str)
+
+    return true_counts
+
+
+def gof_eval(df_true: pd.DataFrame, df_simulated: pd.DataFrame) -> float:
+    data = pd.DataFrame()
+    data["diff_square"] = (df_simulated["simulated_counts"] - df_true["true_counts"]) ** 2
+    n = data.shape[0]
+    sum_diff: float = data["diff_square"].sum()
+    sum_true: float = df_true["true_counts"].sum()
+    RMSN: float = np.sqrt(n * sum_diff) / sum_true
+    return RMSN
+
+
+def od_to_matrix(od_vector: pd.DataFrame) -> np.ndarray:
     """A simple function that converts an OD vector to OD matrix. We read
     through the vector (row after row) and create a matrix.
 
@@ -106,3 +164,21 @@ def od_to_file(config: dict[str, Path], sim_setup: dict[str, str], od_matrix: pd
     with open(file_name, "w") as f:
         f.write(header_text)
         od_matrix.to_csv(f, header=False, index=False, sep=" ")
+
+
+def cleanup_results(config: dict[str, Path]) -> None:
+    """
+    Clean up temporary files from previous simulations.
+
+    Parameters
+    ----------
+    config: dictionary containing config params
+
+    Returns
+    -------
+    None
+    """
+    results_dir = config["RESULTS"]
+    for file in results_dir.glob("*"):
+        if file.is_file():
+            file.unlink()
