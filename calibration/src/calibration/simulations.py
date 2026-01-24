@@ -9,11 +9,11 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-MAX_PROCESSES = 8  # maximum number of parallel processes
+MAX_PROCESSES = 18  # maximum number of parallel processes
 
 
 def run_single_simulation(
-    config: dict[str, Path], sim_setup: dict[str, Any], counter: int, seed: int
+    config: dict[str, Path], sim_setup: dict[str, Any], job: tuple[int, int]
 ) -> None:
     """
     Run a single SUMO simulation.
@@ -25,33 +25,37 @@ def run_single_simulation(
         Necessary paths.
     sim_setup : Dictionary
         Simulation setup parameters.
-    counter : int
-        SUMO replication index.
-    seed : int
-        Random seed to use for the sim.
+    job : tuple[int, int]
+        Tuple (counter, seed): replication index and random seed to use.
 
     Returns
     -------
     None.
     """
 
+    counter, seed = job
+
     # set default rerouting probability
     p_reroute = 0.1
 
     # run od2trips tool
     od2trips = (
-        f"uv run {config['SUMO']}\\tools\\od2trips\\od2trips.py "
+        f"{config['SUMO']}\\bin\\od2trips.exe "
         f"--no-step-log --output-prefix {counter} --spread.uniform "
         f"--taz-files {config['NETWORK'] / sim_setup['taz']} "
         f"-d {config['CACHE']}\\od_updated.txt "
         f"-o {config['CACHE']}\\upd_od_trips.trips.xml --seed {seed}"
     )
 
-    subprocess.run(od2trips)
+    subprocess.run(od2trips, stdout=subprocess.DEVNULL)
+
+    # patch sim_setup for start and end sim seconds
+    sim_setup["start_sim_sec"] = sim_setup["starttime"] * 3600 - 500
+    sim_setup["end_sim_sec"] = sim_setup["endtime"] * 3600 + 500
 
     # run SUMO simulation
     sumo_run = (
-        f"uv run sumo --mesosim --no-step-log --output-prefix {counter} "
+        f"{config['SUMO']}\\bin\\sumo.exe --mesosim --no-step-log --output-prefix {counter} "
         f"-n {config['NETWORK'] / sim_setup['net']} -W "
         f"-b {sim_setup['start_sim_sec']} -e {sim_setup['end_sim_sec']} "
         f"-r {config['CACHE']}\\{counter}upd_od_trips.trips.xml "
@@ -84,10 +88,13 @@ def run_multiple_simulations(config: dict[str, Path], sim_setup: dict[str, Any])
 
     # create partial function
     worker_fun = partial(run_single_simulation, config, sim_setup)
+    processes = min(MAX_PROCESSES, n_replicates)
 
-    with Pool(processes=MAX_PROCESSES) as pool:
-        tqdm(
-            pool.imap_unordered(worker_fun, enumerate(seeds)),
-            total=n_replicates,
-            desc="Running SUMO simulations",
+    with Pool(processes=processes) as pool:
+        list(
+            tqdm(
+                pool.imap_unordered(worker_fun, enumerate(seeds)),
+                total=n_replicates,
+                desc="Running SUMO simulations",
+            )
         )

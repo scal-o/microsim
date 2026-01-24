@@ -1,11 +1,16 @@
 """Functions to parse SUMO output files for calibration purposes."""
 
 import subprocess
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
+MAX_PROCESSES = 8  # maximum number of parallel processes
 
 
 def parse_single_run_data(
@@ -31,6 +36,7 @@ def parse_single_run_data(
     Numpy array
         Aggregated counts, speeds, and densities per link.
     """
+    loop_file = Path(loop_file)
 
     # compute simulation end time in secs
     fract = float(endtime)
@@ -39,16 +45,17 @@ def parse_single_run_data(
     endSimTime = integ * 60 * 60 + fract * 60
 
     # create data2csv command
-    output_file = config["RESULTS"] / "loopDataName.csv"
     data2csv = (
-        f"uv run {config['SUMO']}\\tools\\xml\\xml2csv.py "
+        f"{config['PYTHON']} {config['SUMO']}\\tools\\xml\\xml2csv.py "
         f"{config['RESULTS'] / loop_file} "
         f"--x {config['SUMO']}\\data\\xsd\\det_e1meso_file.xsd "
-        f"-o {output_file}"
     )
 
     # convert XML to CSV
     subprocess.run(data2csv)
+
+    # output file name
+    output_file = config["RESULTS"] / f"{loop_file.stem}.csv"
 
     # read csv file and filter relevant trips
     df_trips = pd.read_csv(output_file, sep=";", header=0)
@@ -74,7 +81,7 @@ def parse_single_run_data(
     df_all["counts"] = df_group["Counts"]
     df_all["speeds"] = df_group2["Speeds"]
     df_all["density"] = df_group2["Density"]
-    df_all = df_all.reindex("Edge")
+    df_all = df_all.reindex()
     return df_all
 
 
@@ -97,23 +104,27 @@ def parse_multiple_runs_data(config: dict[str, Path], sim_setup: dict[str, Any])
         Aggregated counts, speeds, and densities per link across all runs.
     """
 
-    # create empty dataframes to hold results
-    counts = pd.DataFrame()
-    speeds = pd.DataFrame()
-    density = pd.DataFrame()
+    worker_fun = partial(parse_single_run_data, config, endtime=sim_setup["endtime"])
+    n_replicates = sim_setup["n_sumo_replicate"]
+    file_names = [f"{i}out.xml" for i in range(n_replicates)]
 
-    # loop over all simulation replicates
-    # parse results and concatenate in the dataframes
-    for counter in range(sim_setup["n_sumo_replicate"]):
-        loop_file = str(counter) + "out.xml"
-        df_loop = parse_single_run_data(config, loop_file, sim_setup["endtime"])
-        counts = pd.concat([counts, df_loop["counts"]], axis=1, sort=True)
-        speeds = pd.concat([speeds, df_loop["speeds"]], axis=1, sort=True)
-        density = pd.concat([density, df_loop["density"]], axis=1, sort=True)
+    with Pool(processes=MAX_PROCESSES) as pool:
+        results = list(
+            tqdm(
+                pool.imap_unordered(worker_fun, file_names),
+                total=n_replicates,
+                desc="Parsing SUMO outputs",
+            )
+        )
 
-    df_counts_mean = counts.astype("int32")
-    df_counts_mean = pd.DataFrame()
-    df_counts_mean.columns = ["simulated_counts", "simulated_speeds", "simulated_density"]
+    # concatenate outputs
+    counts = pd.concat([df["counts"] for df in results], axis=1, sort=True)
+    speeds = pd.concat([df["speeds"] for df in results], axis=1, sort=True)
+    density = pd.concat([df["density"] for df in results], axis=1, sort=True)
+
+    # compute link-wise means
+    colnames = ["simulated_counts", "simulated_speeds", "simulated_density"]
+    df_counts_mean = pd.DataFrame(columns=colnames)
     df_counts_mean["simulated_counts"] = counts.mean(axis=1)
     df_counts_mean["simulated_speeds"] = speeds.mean(axis=1)
     df_counts_mean["simulated_density"] = density.mean(axis=1)
