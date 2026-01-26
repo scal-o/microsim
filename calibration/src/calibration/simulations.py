@@ -67,7 +67,11 @@ def run_single_simulation(
     subprocess.run(sumo_run)
 
 
-def run_multiple_simulations(config: dict[str, Path], sim_setup: dict[str, Any]) -> None:
+def run_multiple_simulations(
+    config: dict[str, Path],
+    sim_setup: dict[str, Any],
+    seeds: np.ndarray | list[int] | None = None,
+) -> None:
     """
     Run multiple SUMO simulations in parallel.
 
@@ -78,13 +82,25 @@ def run_multiple_simulations(config: dict[str, Path], sim_setup: dict[str, Any])
     sim_setup : Dictionary
         Simulation setup parameters.
 
+    seeds
+        Optional list/array of integer seeds (length == n_sumo_replicate). If not
+        provided, seeds are generated internally.
+
     Returns
     -------
     None.
     """
 
-    n_replicates = sim_setup["n_sumo_replicate"]
-    seeds = np.random.normal(0, 10000, n_replicates).astype("int32")
+    n_replicates = int(sim_setup["n_sumo_replicate"])
+
+    if seeds is None:
+        seeds_list = np.random.normal(0, 10000, n_replicates).astype("int32")
+    else:
+        seeds_list = np.asarray(list(seeds), dtype="int32")
+        if seeds_list.shape[0] != n_replicates:
+            raise ValueError(
+                f"seeds must have length n_sumo_replicate={n_replicates}, got {seeds_list.shape[0]}"
+            )
 
     # create partial function
     worker_fun = partial(run_single_simulation, config, sim_setup)
@@ -93,7 +109,7 @@ def run_multiple_simulations(config: dict[str, Path], sim_setup: dict[str, Any])
     with Pool(processes=processes) as pool:
         list(
             tqdm(
-                pool.imap_unordered(worker_fun, enumerate(seeds)),
+                pool.imap_unordered(worker_fun, enumerate(seeds_list)),
                 total=n_replicates,
                 desc="Running SUMO simulations",
             )
