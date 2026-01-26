@@ -1,0 +1,8 @@
+Best parameters found:
+  a: 79
+  c: 0.6246835371823124
+  A: 88
+  alpha: 0.13835384723792518
+  gamma: 0.6232790142002737
+
+They sure need tweaking

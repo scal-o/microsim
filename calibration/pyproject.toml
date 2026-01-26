@@ -12,6 +12,7 @@ dependencies = [
     "eclipse-sumo>=1.25.0",
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",
+    "optuna>=4.7.0",
     "pandas>=3.0.0",
     "scipy>=1.17.0",
     "seaborn>=0.13.2",
@@ -20,7 +21,7 @@ dependencies = [
 
 [project.scripts]
 rmsn = "calibration.scripts.rmsn_eval:rmsn_cli"
-calibration = "calibration:main"
+calibrate = "calibration.scripts.param_calibration:main"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
