@@ -107,16 +107,6 @@ def load_true_counts(config: dict[str, Path], sim_setup: dict[str, str]) -> pd.D
     return true_counts
 
 
-def gof_eval(df_true: pd.DataFrame, df_simulated: pd.DataFrame) -> float:
-    data = pd.DataFrame()
-    data["diff_square"] = (df_simulated["simulated_counts"] - df_true["true_counts"]) ** 2
-    n = data.shape[0]
-    sum_diff: float = data["diff_square"].sum()
-    sum_true: float = df_true["true_counts"].sum()
-    RMSN: float = np.sqrt(n * sum_diff) / sum_true
-    return RMSN
-
-
 def od_to_matrix(od_vector: pd.DataFrame) -> np.ndarray:
     """A simple function that converts an OD vector to OD matrix. We read
     through the vector (row after row) and create a matrix.
