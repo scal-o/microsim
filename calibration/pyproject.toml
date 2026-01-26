@@ -6,8 +6,9 @@ readme = "README.md"
 authors = [
     { name = "scal-o", email = "alex.scalese@virgilio.it" }
 ]
-requires-python = ">=3.13"
+requires-python = "==3.13.*"
 dependencies = [
+    "click>=8.3.1",
     "eclipse-sumo>=1.25.0",
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",
@@ -18,6 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
+rmsn = "calibration.scripts.rmsn_eval:rmsn_cli"
 calibration = "calibration:main"
 
 [build-system]
