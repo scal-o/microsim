@@ -1,10 +1,48 @@
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+
+def _run(cmd: list[str | Path], **kwargs: Any) -> None:
+    """
+    Run a subprocess command with Path support and cross-platform argument handling.
+    """
+    cmd_str = [str(c) for c in cmd]
+    subprocess.run(cmd_str, check=True, **kwargs)
+
+
+def _ensure_sumo_env(config: dict[str, Path]) -> None:
+    """
+    Ensure SUMO environment is configured in a standard way:
+
+    - ensures `SUMO_HOME` is set (from env if present, otherwise from `config["SUMO"]`)
+    - adds `SUMO_HOME/tools` to PYTHONPATH and to `sys.path`
+
+    This enables importing `sumolib` / `traci` on both Windows and WSL.
+
+    Returns
+    -------
+    None
+    """
+    # resolve SUMO_HOME
+    if "SUMO_HOME" not in os.environ:
+        if "SUMO" not in config:
+            raise EnvironmentError(
+                "SUMO_HOME environment variable not set and config['SUMO'] missing."
+            )
+        sumo_home = Path(config["SUMO"])
+        os.environ["SUMO_HOME"] = str(sumo_home)
+    else:
+        sumo_home = Path(os.environ["SUMO_HOME"])
+
+    # add SUMO tools to python import path
+    sys.path.append(str(sumo_home / "tools"))
 
 
 def load_spsa_config(
@@ -37,12 +75,8 @@ def load_spsa_config(
     for k, v in config.items():
         conf_dict[k] = Path(v)
 
-    # load sumo home env var
-    if "SUMO_HOME" not in os.environ:
-        if "SUMO" not in config:
-            raise EnvironmentError("SUMO_HOME environment variable not set.")
-        else:
-            os.environ["SUMO_HOME"] = str(config["SUMO"])
+    # ensure SUMO_HOME + tools are available (sumolib/traci)
+    _ensure_sumo_env(conf_dict)
 
     sim_setup = Path(sim_setup) if isinstance(sim_setup, str) else sim_setup
     sim_setup = json.load(open(sim_setup))

@@ -1,6 +1,5 @@
 """Functions to parse SUMO output files for calibration purposes."""
 
-import subprocess
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
@@ -9,6 +8,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+
+from calibration import utils
 
 MAX_PROCESSES = 8  # maximum number of parallel processes
 
@@ -44,15 +45,21 @@ def parse_single_run_data(
     fract = round(fract - integ, 2)
     endSimTime = integ * 60 * 60 + fract * 60
 
-    # create data2csv command
-    data2csv = (
-        f"{config['PYTHON']} {config['SUMO']}\\tools\\xml\\xml2csv.py "
-        f"{config['RESULTS'] / loop_file} "
-        f"--x {config['SUMO']}\\data\\xsd\\det_e1meso_file.xsd "
-    )
+    # create data2csv command (portable Windows/WSL)
+    xml2csv_py = config["SUMO"] / "tools" / "xml" / "xml2csv.py"
+    det_xsd = config["SUMO"] / "data" / "xsd" / "det_e1meso_file.xsd"
+    input_xml = config["RESULTS"] / loop_file
+
+    data2csv_cmd = [
+        config["PYTHON"],
+        xml2csv_py,
+        input_xml,
+        "--x",
+        det_xsd,
+    ]
 
     # convert XML to CSV
-    subprocess.run(data2csv)
+    utils._run(data2csv_cmd)
 
     # output file name
     output_file = config["RESULTS"] / f"{loop_file.stem}.csv"

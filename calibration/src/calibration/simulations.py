@@ -9,6 +9,8 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
+from calibration import utils
+
 MAX_PROCESSES = 18  # maximum number of parallel processes
 
 
@@ -39,32 +41,71 @@ def run_single_simulation(
     p_reroute = 0.1
 
     # run od2trips tool
-    od2trips = (
-        f"{config['SUMO']}\\bin\\od2trips.exe "
-        f"--no-step-log --output-prefix {counter} --spread.uniform "
-        f"--taz-files {config['NETWORK'] / sim_setup['taz']} "
-        f"-d {config['CACHE']}\\od_updated.txt "
-        f"-o {config['CACHE']}\\upd_od_trips.trips.xml --seed {seed}"
-    )
+    try:
+        import sumolib
+    except Exception as e:
+        raise ImportError("Ensure sumolib is in your PYTHONPATH -> utils._ensure_sumo_env") from e
 
-    subprocess.run(od2trips, stdout=subprocess.DEVNULL)
+    od2trips_bin = sumolib.checkBinary("od2trips")
+    od_updated = config["CACHE"] / "od_updated.txt"
+    trips_out = config["CACHE"] / "upd_od_trips.trips.xml"
+
+    od2trips_cmd = [
+        od2trips_bin,
+        "--no-step-log",
+        "--output-prefix",
+        str(counter),
+        "--spread.uniform",
+        "--taz-files",
+        config["NETWORK"] / sim_setup["taz"],
+        "-d",
+        od_updated,
+        "-o",
+        trips_out,
+        "--seed",
+        str(seed),
+    ]
+
+    utils._run(od2trips_cmd, stdout=subprocess.DEVNULL)
 
     # patch sim_setup for start and end sim seconds
     sim_setup["start_sim_sec"] = sim_setup["starttime"] * 3600 - 500
     sim_setup["end_sim_sec"] = sim_setup["endtime"] * 3600 + 500
 
     # run SUMO simulation
-    sumo_run = (
-        f"{config['SUMO']}\\bin\\sumo.exe --mesosim --no-step-log --output-prefix {counter} "
-        f"-n {config['NETWORK'] / sim_setup['net']} -W "
-        f"-b {sim_setup['start_sim_sec']} -e {sim_setup['end_sim_sec']} "
-        f"-r {config['CACHE']}\\{counter}upd_od_trips.trips.xml "
-        f"--vehroutes {config['CACHE']}\\routes.vehroutes.xml "
-        f"--additional-files {config['NETWORK'] / sim_setup['detector']} "
-        f"--xml-validation never --device.rerouting.probability {p_reroute} --seed {seed}"
-    )
+    sumo_bin = sumolib.checkBinary("sumo")
 
-    subprocess.run(sumo_run)
+    route_file = config["CACHE"] / f"{counter}upd_od_trips.trips.xml"
+    vehroutes_file = config["CACHE"] / "routes.vehroutes.xml"
+
+    sumo_cmd = [
+        sumo_bin,
+        "--mesosim",
+        "--no-step-log",
+        "--output-prefix",
+        str(counter),
+        "-n",
+        config["NETWORK"] / sim_setup["net"],
+        "-W",
+        "-b",
+        str(sim_setup["start_sim_sec"]),
+        "-e",
+        str(sim_setup["end_sim_sec"]),
+        "-r",
+        route_file,
+        "--vehroutes",
+        vehroutes_file,
+        "--additional-files",
+        config["NETWORK"] / sim_setup["detector"],
+        "--xml-validation",
+        "never",
+        "--device.rerouting.probability",
+        str(p_reroute),
+        "--seed",
+        str(seed),
+    ]
+
+    utils._run(sumo_cmd)
 
 
 def run_multiple_simulations(
