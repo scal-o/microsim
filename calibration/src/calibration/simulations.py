@@ -69,8 +69,8 @@ def run_single_simulation(
     utils._run(od2trips_cmd, stdout=subprocess.DEVNULL)
 
     # patch sim_setup for start and end sim seconds
-    sim_setup["start_sim_sec"] = sim_setup["starttime"] * 3600 - 500
-    sim_setup["end_sim_sec"] = sim_setup["endtime"] * 3600 + 500
+    sim_setup["start_sim_sec"] = sim_setup["starttime"] * 3600 - 1800
+    sim_setup["end_sim_sec"] = sim_setup["endtime"] * 3600 + 1800
 
     # run SUMO simulation
     sumo_bin = sumolib.checkBinary("sumo")
