@@ -1,34 +1,26 @@
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import t as tdist
-
-# set input and output directories
-INPUT_DIR = Path("data")
-OUTPUT_DIR = Path("results") / "plots"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# read dataframe data from test counts
-data = pd.read_csv(INPUT_DIR / "t_test_counts100.csv", sep=",", header=None)
-data = data.drop([0], axis=0)
-data = data.drop([0], axis=1)
-
-# compute mean, sd and tolerance for all detectors
-stats = pd.DataFrame()
-stats["mean"] = data.mean(axis=1)
-stats["std"] = data.std(axis=1)
-stats["tol"] = 0.1 * stats["mean"]
+from calibration.replications import load_or_compute_required_replications
+from calibration.utils import load_spsa_config
 
 # set test parameters
 confidence_level = 0.95
-alpha = 1 - confidence_level
 max_sim_n = 30
 
-# plot settings for detectors requiring "many" replications
-many_rep_threshold = 15
+# load config
+config, _, _ = load_spsa_config()
+
+OUTPUT_DIR = config["PLOTS"]
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# load cached stats if available, otherwise compute and cache them
+stats = load_or_compute_required_replications(
+    config,
+    confidence_level=confidence_level,
+    max_sim_n=max_sim_n,
+    tol_factor=0.1,
+)
 
 
 def plot_det_prop(num, det_n, title, output):
@@ -50,8 +42,8 @@ def plot_det_prop(num, det_n, title, output):
     plt.close(fig)
 
 
-def plot_detectors_needing_many_reps(stats_df: pd.DataFrame, threshold: int, output: str):
-    # get index of detectors not satisfying the threshold
+def plot_detectors_over_repl_threshold(stats_df: pd.DataFrame, threshold: int, output: str):
+    # get detector ids not satisfying the threshold
     not_satisfied = stats_df[f"{threshold}"]
     not_satisfied = not_satisfied[~not_satisfied].index
 
@@ -66,7 +58,7 @@ def plot_detectors_needing_many_reps(stats_df: pd.DataFrame, threshold: int, out
     df = stats_df[["mean"]].loc[not_satisfied].copy()
     df = df.sort_values(by="mean", ascending=True)
 
-    # X as categorical labels (strings)
+    # X as categorical labels (detector ids as strings)
     x_labels = df.index.astype(str).to_list()
     y = df["mean"].to_numpy()
 
@@ -87,37 +79,21 @@ def plot_detectors_needing_many_reps(stats_df: pd.DataFrame, threshold: int, out
     plt.close(fig)
 
 
-# create lists
-prop = []
-num = []
-
-for n in range(1, max_sim_n + 1):
-    # compute t-statistic
-    t_val = tdist.ppf(1 - alpha / 2, n)
-
-    # compute number of required sims
-    stats[f"{n}"] = ((t_val * stats["std"]) / stats["tol"]) ** 2
-    stats = stats.fillna(0)
-
-    # check (for each link) if the number of required sims is under the t-student sample size
-    stats[f"{n}"] = stats[f"{n}"] < (n + 1)
-
-    # append number and proportion of significant detectors
-    num.append(stats[f"{n}"].sum())
-    prop.append((stats[f"{n}"]).sum() / stats.shape[0])
+num = [stats[str(n)].astype(bool).sum() for n in range(1, max_sim_n + 1)]
 
 # create plots
-plot_det_prop(num, len(stats), r"Detectors within 97.5% confidence level", "stat_signif.png")
-plot_detectors_needing_many_reps(stats, many_rep_threshold, "detectors_over_15.png")
+plot_det_prop(num, len(stats), r"Detectors within 95% confidence level", "stat_signif.png")
+plot_detectors_over_repl_threshold(stats, 15, "detectors_over_15.png")
+plot_detectors_over_repl_threshold(stats, 20, "detectors_over_20.png")
 
 # filter links with average flow < 5% of the global average
-p = stats["mean"] > (0.05 * stats["mean"].mean())
+p = stats["mean"] > (0.1 * stats["mean"].mean())
 filt_stats = stats[p]
-filt_num = [filt_stats[f"{n}"].sum() for n in range(1, max_sim_n + 1)]
+filt_num = [filt_stats[str(n)].astype(bool).sum() for n in range(1, max_sim_n + 1)]
 plot_det_prop(
     filt_num,
     len(filt_stats),
-    r"Meaningful detectors within 97.5% confidence level",
+    r"Meaningful detectors within 95% confidence level",
     "stat_signif_filt.png",
 )
 
