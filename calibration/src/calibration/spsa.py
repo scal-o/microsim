@@ -10,7 +10,8 @@ from typing import Any, Self
 import numpy as np
 import pandas as pd
 
-from calibration import gof, parsing, simulations, utils
+from calibration import parsing, simulations, utils
+from calibration.gof import Gof
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,7 @@ def run_spsa(
     spsa_setup: dict[str, Any],
     df_true: pd.DataFrame,
     input_od: pd.DataFrame,
+    gof_calculator: Gof | None = None,
 ) -> dict[str, Any]:
     """Run the SPSA algorithm for calibrating the OD matrix.
 
@@ -101,7 +103,10 @@ def run_spsa(
     df_true = df_true.fillna(0)
 
     # evaluate goodness of fit
-    y = gof.gof_eval(df_true, df_simulated)
+    # If a GOF calculator is not provided, keep backward-compatible behavior.
+    if gof_calculator is None:
+        gof_calculator = Gof()
+    y = gof_calculator.compute_gof(df_true, df_simulated)
     print("Starting RMSN = ", y)
     print("========================================")
 
@@ -198,7 +203,7 @@ def run_spsa(
             plus_rel_maxs.append(float(np.nanmax(od_rel_plus)))
 
             df_simulated = run_parse_cleanup(config, sim_setup, OD_plus, seeds=seeds_ga)
-            y = gof.gof_eval(df_true, df_simulated)
+            y = gof_calculator.compute_gof(df_true, df_simulated)
             yplus = np.asarray(y)
             yplus_list.append(float(y))
 
@@ -239,7 +244,7 @@ def run_spsa(
             minus_rel_maxs.append(float(np.nanmax(od_rel_minus)))
 
             df_simulated = run_parse_cleanup(config, sim_setup, OD_minus, seeds=seeds_ga)
-            y = gof.gof_eval(df_true, df_simulated)
+            y = gof_calculator.compute_gof(df_true, df_simulated)
             yminus = np.asarray(y)
             yminus_list.append(float(y))
 
@@ -333,7 +338,7 @@ def run_spsa(
         # run simulation with updated OD
         print("Simulation %d . %d . minimization" % (iteration, ga))
         df_simulated = run_parse_cleanup(config, sim_setup, OD_min)
-        y_min = gof.gof_eval(df_true, df_simulated)
+        y_min = gof_calculator.compute_gof(df_true, df_simulated)
 
         rmsn.append(y_min)
 
