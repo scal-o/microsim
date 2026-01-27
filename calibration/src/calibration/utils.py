@@ -46,9 +46,9 @@ def _ensure_sumo_env(config: dict[str, Path]) -> None:
 
 
 def load_spsa_config(
-    config: Path | str = "config.json",
-    sim_setup: Path | str = "simulation_setups.json",
-    spsa_setup: Path | str = "spsa_setups.json",
+    config: Path | str = "calibration/configs/config.json",
+    sim_setup: Path | str = "calibration/configs/simulation_setups.json",
+    spsa_setup: Path | str = "calibration/configs/spsa_setups.json",
 ) -> tuple[dict[str, Path], dict[str, Any], dict[str, Any]]:
     """Load paths, simulation setups and algorithm setups
 
