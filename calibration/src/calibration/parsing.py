@@ -15,7 +15,7 @@ MAX_PROCESSES = 8  # maximum number of parallel processes
 
 
 def parse_single_run_data(
-    config: dict[str, Path], loop_file: Path | str, endtime: float | int
+    config: dict[str, Path], loop_file: Path | str, endtime: float | int, starttime: float | int
 ) -> pd.DataFrame:
     """
     Low-level function to parse the results of a single SUMO simulation run.
@@ -31,6 +31,8 @@ def parse_single_run_data(
         SUMO detector data file.
     endtime : Float/Int
         End time of the current interval.
+    starttime : Float/Int
+        Start time of the current interval.
 
     Returns
     -------
@@ -44,6 +46,12 @@ def parse_single_run_data(
     integ = int(fract)
     fract = round(fract - integ, 2)
     endSimTime = integ * 60 * 60 + fract * 60
+
+    # compute simulation end time in secs
+    fract = float(starttime)
+    integ = int(fract)
+    fract = round(fract - integ, 2)
+    startSimTime = integ * 60 * 60 + fract * 60
 
     # create data2csv command (portable Windows/WSL)
     xml2csv_py = config["SUMO"] / "tools" / "xml" / "xml2csv.py"
@@ -66,24 +74,25 @@ def parse_single_run_data(
 
     # read csv file and filter relevant trips
     df_trips = pd.read_csv(output_file, sep=";", header=0)
+    df_trips = df_trips[df_trips["interval_begin"] >= startSimTime]
     df_trips = df_trips[df_trips["interval_end"] < endSimTime]
 
-    # extract edge IDs from detector IDs
+    # extract detector IDs
     det_id = df_trips["interval_id"]
-    edge_id = [word.split("_")[1] for word in det_id]
-    df_trips["EdgeID"] = edge_id
+    det_id = [word.split("_")[1] for word in det_id]
+    df_trips["detector_id"] = det_id
 
     # aggregate counts per link
     temp = pd.DataFrame()
-    temp["EdgeID"] = edge_id
+    temp["detector_id"] = df_trips["detector_id"]
     temp["Counts"] = df_trips["interval_entered"]
     temp["Speeds"] = df_trips["interval_speed"]
     temp["Density"] = df_trips["interval_density"]
     temp = temp.fillna(0)
-    df_group = temp.groupby("EdgeID").agg(np.sum)
-    df_group2 = temp.groupby("EdgeID").agg(np.average)
-    df_group["Edge"] = df_group.index
-    df_group2["Edge"] = df_group.index
+    df_group = temp.groupby("detector_id").agg(np.sum)
+    df_group2 = temp.groupby("detector_id").agg(np.average)
+    df_group["detector_id"] = df_group.index
+    df_group2["detector_id"] = df_group.index
     df_all = pd.DataFrame()
     df_all["counts"] = df_group["Counts"]
     df_all["speeds"] = df_group2["Speeds"]
@@ -111,7 +120,12 @@ def parse_multiple_runs_data(config: dict[str, Path], sim_setup: dict[str, Any])
         Aggregated counts, speeds, and densities per link across all runs.
     """
 
-    worker_fun = partial(parse_single_run_data, config, endtime=sim_setup["endtime"])
+    worker_fun = partial(
+        parse_single_run_data,
+        config,
+        endtime=sim_setup["endtime"],
+        starttime=sim_setup["starttime"],
+    )
     n_replicates = sim_setup["n_sumo_replicate"]
     file_names = [f"{i}out.xml" for i in range(n_replicates)]
 

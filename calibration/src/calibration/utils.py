@@ -134,8 +134,13 @@ def load_true_counts(config: dict[str, Path], sim_setup: dict[str, str]) -> pd.D
     """
     file_name = config["NETWORK"] / sim_setup["loop_data"]
     true_counts = pd.read_csv(file_name, header=None)
-    true_counts.columns = ["label", "true_counts", "true_speeds", "true_density"]  # for counts
-    true_counts = true_counts.set_index("label")
+    true_counts.columns = [
+        "detector_id",
+        "true_counts",
+        "true_speeds",
+        "true_density",
+    ]  # for counts
+    true_counts = true_counts.set_index("detector_id")
     true_counts.index = true_counts.index.map(str)
 
     return true_counts
