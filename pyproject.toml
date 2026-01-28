@@ -16,6 +16,7 @@ build-backend = "uv_build"
 [tool.uv.workspace]
 members = [
     "calibration",
+    "dynamic",
 ]
 
 [dependency-groups]

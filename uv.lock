@@ -10,6 +10,7 @@ resolution-markers = [
 [manifest]
 members = [
     "calibration",
+    "dynamic",
     "microsim",
 ]
 
@@ -663,6 +664,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/19/ef/da712c4d9c7d6cacac27d7b2779e6a97c3381ef2c963c33719d39113b6a3/dvc_task-0.40.2.tar.gz", hash = "sha256:909af541bf5fde83439da56c4c0ebac592af178a59b702708fadaacfd6e7b704", size = 36147, upload-time = "2024-10-08T12:47:31.915Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/bf/f23e8eff38556d479ab421f8b9ac9a9a0b44f8400098c934dce0607da1de/dvc_task-0.40.2-py3-none-any.whl", hash = "sha256:3891b94cf9d349072ee32ce47217b73530b1905e6dd5a1e378bd74afc8b4c030", size = 21392, upload-time = "2024-10-08T12:47:30.317Z" },
+]
+
+[[package]]
+name = "dynamic"
+version = "0.1.0"
+source = { editable = "dynamic" }
+dependencies = [
+    { name = "eclipse-sumo" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "traci" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "eclipse-sumo", specifier = ">=1.25.0" },
+    { name = "numpy", specifier = ">=2.4.1" },
+    { name = "pandas", specifier = ">=3.0.0" },
+    { name = "traci", specifier = ">=1.25.0" },
 ]
 
 [[package]]
@@ -1912,6 +1932,14 @@ wheels = [
 ]
 
 [[package]]
+name = "sumolib"
+version = "1.25.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/48/39dbcca267b826eaf7b0edc1f0e78f85698b4132393a894fe58656535927/sumolib-1.25.0-py3-none-any.whl", hash = "sha256:32e431ba0737dc44f25916371900996e09d6dac51c93cd178fdb2c91c6aa18a9", size = 278270, upload-time = "2025-11-13T09:43:16.826Z" },
+]
+
+[[package]]
 name = "tabulate"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1939,6 +1967,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/30/dc54f88dd4a2b5dc8a0279bdd7270e735851848b762aeb1c1184ed1f6b14/tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2", size = 78540, upload-time = "2024-11-24T20:12:19.698Z" },
+]
+
+[[package]]
+name = "traci"
+version = "1.25.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sumolib" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/7b/f3b53b523616e8fed7f354de6389307cc5664e16660085fa4934a0c9b09d/traci-1.25.0-py3-none-any.whl", hash = "sha256:76bffcb529cb6a8d9494d496f0190ae82c1be4ea28a879fd537ac22b59c4223a", size = 278508, upload-time = "2025-11-13T09:43:18.052Z" },
 ]
 
 [[package]]
