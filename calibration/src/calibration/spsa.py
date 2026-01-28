@@ -2,16 +2,21 @@
 SPSA (Simultaneous Perturbation Stochastic Approximation) optimization for calibration.
 """
 
+from __future__ import annotations
+
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
 import pandas as pd
 
 from calibration import parsing, simulations, utils
 from calibration.gof import Gof
+
+if TYPE_CHECKING:
+    import optuna
 
 
 @dataclass(frozen=True)
@@ -61,6 +66,7 @@ def run_spsa(
     df_true: pd.DataFrame,
     input_od: pd.DataFrame,
     gof_calculator: Gof | None = None,
+    trial: optuna.trial.Trial | None = None,
 ) -> dict[str, Any]:
     """Run the SPSA algorithm for calibrating the OD matrix.
 
@@ -106,6 +112,7 @@ def run_spsa(
     # If a GOF calculator is not provided, keep backward-compatible behavior.
     if gof_calculator is None:
         gof_calculator = Gof()
+    rmsn_components = gof_calculator.compute_rmsn_components(df_true, df_simulated)
     y = gof_calculator.compute_gof(df_true, df_simulated)
     print("Starting RMSN = ", y)
     print("========================================")
@@ -120,6 +127,10 @@ def run_spsa(
     list_ck = []
     list_g = []
 
+    list_dfs = []
+    list_dfs.append(df_simulated)
+    list_rmsn_components = []
+    list_rmsn_components.append(rmsn_components)
     rmsn: list[float] = []
     rmsn.append(y)
 
@@ -338,8 +349,13 @@ def run_spsa(
         # run simulation with updated OD
         print("Simulation %d . %d . minimization" % (iteration, ga))
         df_simulated = run_parse_cleanup(config, sim_setup, OD_min)
+        rmsn_components = gof_calculator.compute_rmsn_components(df_true, df_simulated)
         y_min = gof_calculator.compute_gof(df_true, df_simulated)
 
+        # save df only every 10 iterations to reduce storage
+        if iteration % 10 == 0:
+            list_dfs.append(df_simulated)
+        list_rmsn_components.append(rmsn_components)
         rmsn.append(y_min)
 
         print("Iteration NO. %d done" % iteration)
@@ -387,6 +403,17 @@ def run_spsa(
             Best_RMSN = y_min
             Best_simulatedCounts = df_simulated["simulated_counts"]
 
+        # if using optuna, report intermediate objective value
+        if trial is not None:
+            trial.report(Best_RMSN, iteration)
+            # handle pruning based on the intermediate value
+            if trial.should_prune():
+                # local import
+                import optuna
+
+                print("Trial pruned at iteration ", iteration)
+                raise optuna.TrialPruned()
+
     # create results dictionary
     results = {
         "Best_OD": Best_OD,
@@ -396,10 +423,14 @@ def run_spsa(
         "ak_history": list_ak,
         "ck_history": list_ck,
         "g_history": list_g,
+        "df_history": list_dfs,
+        "rmsn_components_history": list_rmsn_components,
     }
 
     # save results to pickle file
-    with open(config["RESULTS"] / "spsa_results.pckl", "wb") as f:  # for overall results
+    with open(
+        config["RESULTS"] / ".." / f"spsa_results_a{params.a}_c{params.c}_A{params.A}.pckl", "wb"
+    ) as f:  # for overall results
         pickle.dump(results, f)
 
     return results
