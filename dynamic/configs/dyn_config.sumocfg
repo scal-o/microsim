@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-09-15 18:46:17 by Eclipse SUMO sumo Version 1.23.1
+-->
+
+<sumoConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/sumoConfiguration.xsd">
+
+    <input>
+        <net-file value="../../data/Aachen.net.xml"/>
+        <route-files value="bus_route.rou.xml, dyn_routes.rou.xml"/>
+        <additional-files value="bus_stops.add.xml, edgedata.add.xml"/>
+    </input>
+
+    <output>
+        <fcd-output value="../../results/dyn/fcd_trajectories.xml.gz"/>
+        <tripinfo-output value="../../results/dyn/tripinfo.xml"/>
+        <stop-output value="../../results/dyn/stop_info.xml"/>
+    </output>
+
+    <report>
+        <no-step-log value="true"/>
+        <no-warnings value="true"/>
+    </report>
+<!--TL/TL_27290835.xml, TL/TL_60713745.xml-->
+</sumoConfiguration>

@@ -1,0 +1,13 @@
+<additional>
+    <edgeData id="edge_performance"
+              file="../../results/dyn/edge_data.xml"
+              begin="0"
+              end="7200"
+              freq="600"/>
+
+    <laneData id="lane_performance"
+              file="../../results/dyn/lane_data.xml"
+              begin="0"
+              end="7200"
+              freq="600"/>
+</additional>
