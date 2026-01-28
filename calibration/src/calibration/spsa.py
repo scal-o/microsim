@@ -428,9 +428,9 @@ def run_spsa(
     }
 
     # save results to pickle file
-    with open(
-        config["RESULTS"] / ".." / f"spsa_results_a{params.a}_c{params.c}_A{params.A}.pckl", "wb"
-    ) as f:  # for overall results
+    pckl_path = config["RESULTS"] / ".." / f"spsa_results_a{params.a}_c{params.c}_A{params.A}.pckl"
+    print("Saving SPSA results to pickle file: ", pckl_path)
+    with open(pckl_path, "wb") as f:  # for overall results
         pickle.dump(results, f)
 
     return results
