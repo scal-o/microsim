@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "eclipse-sumo>=1.25.0",
+    "libsumo>=1.25.0",
     "numpy>=2.4.1",
     "pandas>=3.0.0",
     "traci>=1.25.0",

@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Literal, Self
 
 import sumolib
-import traci
+
+from dynamic import traci
 
 
 class RunManager:
