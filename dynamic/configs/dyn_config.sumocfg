@@ -12,9 +12,9 @@
     </input>
 
     <output>
-        <fcd-output value="../../results/dyn/fcd_trajectories.xml.gz"/>
-        <tripinfo-output value="../../results/dyn/tripinfo.xml"/>
-        <stop-output value="../../results/dyn/stop_info.xml"/>
+        <fcd-output value="fcd_trajectories.xml.gz"/>
+        <tripinfo-output value="tripinfo.xml"/>
+        <stop-output value="stop_info.xml"/>
     </output>
 
     <report>

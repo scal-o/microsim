@@ -29,7 +29,13 @@ class RunManager:
         - get_tls_duration(junctionID) wip
     """
 
-    def __init__(self, cfg: Path | str = "dynamic/configs/dyn_config.sumocfg", gui: bool = False):
+    def __init__(
+        self,
+        cfg: Path | str = "dynamic/configs/dyn_config.sumocfg",
+        output_base_dir: str = "../../results/dyn/",
+        output_prefix: str = "",
+        gui: bool = False,
+    ):
         """
         Initialize the base run class.
         Reads the .sumocfg file from the provided directory to initializes the run parameters:
@@ -41,6 +47,12 @@ class RunManager:
 
         if not self.sumocfg.exists():
             raise FileNotFoundError(f"dyn_config.sumocfg file not found at {self.sumocfg}")
+
+        self.output_dir = self.sumocfg.parent / output_base_dir / output_prefix
+        self.output_prefix = Path(output_base_dir) / output_prefix
+        if not self.output_dir.exists():
+            print(f"Creating output directory {self.output_dir}")
+            self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.gui = gui
         self.begin = 0
@@ -57,11 +69,10 @@ class RunManager:
         """Simple method to start the simulation via traci"""
         sumo = "sumo-gui" if self.gui else "sumo"
         sumo = sumolib.checkBinary(sumo)
-        cmd = [sumo, "-c", str(self.sumocfg)]
-        print(cmd)
+        cmd = [sumo, "-c", str(self.sumocfg), "--output-prefix", str(self.output_prefix) + "/"]
 
         try:
-            traci.start([sumo, "-c", str(self.sumocfg)])
+            traci.start(cmd)
             self.curr_step = 0
         except:
             traceback.print_exc()
