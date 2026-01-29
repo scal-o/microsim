@@ -12,11 +12,12 @@ dependencies = [
     "libsumo>=1.25.0",
     "numpy>=2.4.1",
     "pandas>=3.0.0",
+    "tqdm>=4.67.1",
     "traci>=1.25.0",
 ]
 
 [project.scripts]
-dynamic = "dynamic:main"
+bus = "dynamic:bus_cli"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]

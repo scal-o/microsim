@@ -675,6 +675,7 @@ dependencies = [
     { name = "libsumo" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "tqdm" },
     { name = "traci" },
 ]
 
@@ -684,6 +685,7 @@ requires-dist = [
     { name = "libsumo", specifier = ">=1.25.0" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "pandas", specifier = ">=3.0.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "traci", specifier = ">=1.25.0" },
 ]
 
