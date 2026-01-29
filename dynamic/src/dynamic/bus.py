@@ -21,10 +21,9 @@ class Bus:
         self._stopped = False
         self._stopped_updated = -1
 
-        # step at which the duration can be updated again
-        # used to avoid continuously updating the stop duration
-        # after it has already been set
-        self._duration_freezed_until = -1
+        # stop duration control
+        # prevents updating the stop duration multiple times for the same stop
+        self._duration_set_for = None
 
     def is_at_stop(self) -> bool:
         """Returns whether the bus is currently at a stop or not"""
@@ -109,7 +108,6 @@ class Bus:
         """Sets the duration of the next stop of the bus (does nothing if no next stop)"""
 
         # sets the bus stop duration and freezes it so it cannot be updated again for this stop
-        if self.next_stop and self.ctx.curr_step >= self._duration_freezed_until:
+        if self.next_stop and self._duration_set_for != self.next_stop_id:
             traci.vehicle.setBusStop(self.id, self.next_stop_id, duration)
-            self._duration_freezed_until = self.ctx.curr_step + duration
-
+            self._duration_set_for = self.next_stop_id
