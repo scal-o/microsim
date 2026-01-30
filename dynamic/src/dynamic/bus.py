@@ -25,12 +25,16 @@ class Bus:
         # prevents updating the stop duration multiple times for the same stop
         self._duration_set_for = None
 
+        # next tls info
+        self._next_tls = None
+        self._next_tls_updated = -1
+
     def is_at_stop(self) -> bool:
         """Returns whether the bus is currently at a stop or not"""
 
         if self._stopped_updated < self.ctx.curr_step:
             self._stopped = traci.vehicle.isAtBusStop(self.id)
-        
+
         self._stopped_updated = self.ctx.curr_step
         return self._stopped
 
@@ -111,3 +115,33 @@ class Bus:
         if self.next_stop and self._duration_set_for != self.next_stop_id:
             traci.vehicle.setBusStop(self.id, self.next_stop_id, duration)
             self._duration_set_for = self.next_stop_id
+
+    @property
+    def next_tls(self) -> tuple[str, int, float, int] | None:
+        """
+        Returns tuple (tlsID, tlsIndex, distance, state) for the next
+        traffic light the bus will encounter
+        """
+
+        if self._next_tls_updated < self.ctx.curr_step:
+            tls = traci.vehicle.getNextTLS(self.id)
+            if len(tls):
+                self._next_tls = tls[0]
+            else:
+                self._next_tls = None
+
+            self._next_tls_updated = self.ctx.curr_step
+
+    @property
+    def next_tls_id(self) -> str | None:
+        """Returns the ID of the next traffic light the bus will encounter (None if no next tls)"""
+        if self.next_tls:
+            return self.next_tls[0]
+        return None
+
+    @property
+    def next_tls_distance(self) -> float | None:
+        """Returns the distance of the next traffic light the bus will encounter (None if no next tls)"""
+        if self.next_tls:
+            return self.next_tls[2]
+        return None
