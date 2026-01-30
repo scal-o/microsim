@@ -352,9 +352,7 @@ def run_spsa(
         rmsn_components = gof_calculator.compute_rmsn_components(df_true, df_simulated)
         y_min = gof_calculator.compute_gof(df_true, df_simulated)
 
-        # save df only every 10 iterations to reduce storage
-        if iteration % 10 == 0:
-            list_dfs.append(df_simulated)
+        list_dfs.append(df_simulated)
         list_rmsn_components.append(rmsn_components)
         rmsn.append(y_min)
 

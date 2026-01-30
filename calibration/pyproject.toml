@@ -22,7 +22,7 @@ dependencies = [
 [project.scripts]
 rmsn = "calibration.scripts.rmsn_eval:rmsn_cli"
 calibrate = "calibration.scripts.param_calibration:main"
-spsa = "calibration.scripts.run_spsa:run_calibration"
+spsa = "calibration.scripts.run_spsa:spsa_cli"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
