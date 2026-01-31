@@ -44,7 +44,7 @@ class Bus:
 
         # check cached data so we only update once per step
         if self._next_stop_updated < self.ctx.curr_step:
-            stops = traci.vehicle.getNextStops(self.id)
+            stops = traci.vehicle.getStops(self.id)
             stops = [s for s in stops if s.stopFlags & 8]
 
             if len(stops):
@@ -131,6 +131,7 @@ class Bus:
                 self._next_tls = None
 
             self._next_tls_updated = self.ctx.curr_step
+        return self._next_tls
 
     @property
     def next_tls_id(self) -> str | None:
@@ -145,3 +146,8 @@ class Bus:
         if self.next_tls:
             return self.next_tls[2]
         return None
+
+    @property
+    def speed(self) -> float:
+        """Returns the current speed of the bus in m/s"""
+        return traci.vehicle.getSpeed(self.id)
