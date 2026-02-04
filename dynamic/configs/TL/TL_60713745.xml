@@ -37,12 +37,12 @@
 -->
 
 <additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
-    <tlLogic id="60713745" type="static" programID="10" offset="0">
-        <phase duration="38" state="GGGGrrrrrrGGrr"/>
+    <tlLogic id="GS_60713745" type="static" programID="10" offset="0">
+        <phase duration="1000" state="GGGGrrrrrrGGrr"/>
         <phase duration="3"  state="yyyygrrrrryygg"/>
         <phase duration="6"  state="rrrrGrrrrrrrGG"/>
         <phase duration="3"  state="rrrryrrrrrrryy"/>
-        <phase duration="37" state="rrrrrGGGGGrrrr"/>
+        <phase duration="1000" state="rrrrrGGGGGrrrr"/>
         <phase duration="3"  state="rrrrryyyyyrrrr"/>
     </tlLogic>
 </additional>
