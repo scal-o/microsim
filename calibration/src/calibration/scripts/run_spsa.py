@@ -20,11 +20,15 @@ def spsa_cli():
 
 
 @spsa_cli.command("run")
-def run_calibration() -> None:
+@click.option("--pca", is_flag=True, help="Whether to use PCA-based SPSA")
+def run_calibration(pca: bool) -> None:
     """Run the SPSA calibration process."""
 
     # load configs
-    config, sim_setup, spsa_setup = utils.load_spsa_config()
+    config, sim_setup, spsa_setup = utils.load_spsa_config(pca=pca)
+
+    if pca:
+        pca_model = pc_spsa.fit_pca(config)
 
     # load true values and initial od matrix
     df_true = utils.load_true_counts(config, sim_setup)
@@ -39,7 +43,10 @@ def run_calibration() -> None:
     gof_calc.update_weights(RUN_WEIGHTS)
 
     # run SPSA calibration
-    spsa.run_spsa(config, sim_setup, spsa_setup, df_true, input_od, gof_calc)
+    if pca:
+        pc_spsa.run_pc_spsa(config, sim_setup, spsa_setup, df_true, input_od, pca_model, gof_calc)
+    else:
+        spsa.run_spsa(config, sim_setup, spsa_setup, df_true, input_od, gof_calc)
 
 
 @spsa_cli.command("plot")
