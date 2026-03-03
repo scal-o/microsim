@@ -48,7 +48,8 @@ def _ensure_sumo_env(config: dict[str, Path]) -> None:
 def load_spsa_config(
     config: Path | str = "calibration/configs/config.json",
     sim_setup: Path | str = "calibration/configs/simulation_setups.json",
-    spsa_setup: Path | str = "calibration/configs/spsa_setups.json",
+    spsa_setup: tuple[Path | str] = ("calibration/configs/spsa_setups.json", "calibration/configs/pc_spsa_setups.json"),
+    pca: bool = False
 ) -> tuple[dict[str, Path], dict[str, Any], dict[str, Any]]:
     """Load paths, simulation setups and algorithm setups
 
@@ -84,6 +85,12 @@ def load_spsa_config(
     for k, v in sim_setup.items():
         sim_dict[k] = v
 
+    if pca: 
+        spsa_setup = spsa_setup[1]  # pc_spsa_setups.json
+    else:
+        spsa_setup = spsa_setup[0]  # spsa_setups.json
+
+    print(f"Using SPSA setup from {spsa_setup}")
     spsa_setup = Path(spsa_setup) if isinstance(spsa_setup, str) else spsa_setup
     spsa_setup = json.load(open(spsa_setup))
     spsa_dict: dict[str, Any] = {}

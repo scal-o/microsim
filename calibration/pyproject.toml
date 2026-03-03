@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=2.4.1",
     "optuna>=4.7.0",
     "pandas>=3.0.0",
+    "scikit-learn>=1.8.0",
     "scipy>=1.17.0",
     "seaborn>=0.13.2",
     "tqdm>=4.67.1",
@@ -23,6 +24,7 @@ dependencies = [
 rmsn = "calibration.scripts.rmsn_eval:rmsn_cli"
 calibrate = "calibration.scripts.param_calibration:main"
 spsa = "calibration.scripts.run_spsa:spsa_cli"
+pca = "calibration.scripts.pca_matrix:pca_cli"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
