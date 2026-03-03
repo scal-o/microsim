@@ -3,7 +3,7 @@
 import click
 import optuna
 
-from calibration import gof, spsa, utils
+from calibration import gof, pc_spsa, spsa, utils
 
 
 def objective(trial: optuna.Trial) -> float:
@@ -33,14 +33,13 @@ def objective(trial: optuna.Trial) -> float:
         "N": 20,
         "G": 1,
         "seg": 5,
+        "variance": 0.95,
     }
 
+    IS_PCA = True
+
     # load configs
-    config, sim_setup, _ = utils.load_spsa_config(
-        "calibration/configs/config.json",
-        "calibration/configs/simulation_setups.json",
-        "calibration/configs/spsa_setups.json",
-    )
+    config, sim_setup, _ = utils.load_spsa_config()
 
     # load true vals and od
     df_true = utils.load_true_counts(config, sim_setup)
@@ -51,7 +50,14 @@ def objective(trial: optuna.Trial) -> float:
     # scale down the initial od matrix (found with starting rmsn analysis)
     input_od.iloc[:, 2:] = input_od.iloc[:, 2:] * 0.6
     # run SPSA calibration with the current parameters
-    results = spsa.run_spsa(config, sim_setup, spsa_setup, df_true, input_od, gof_calc, trial)
+
+    if IS_PCA:
+        pca_model = pc_spsa.fit_pca(config)
+        results = pc_spsa.run_pc_spsa(
+            config, sim_setup, spsa_setup, df_true, input_od, pca_model, gof_calc, trial
+        )
+    else:
+        results = spsa.run_spsa(config, sim_setup, spsa_setup, df_true, input_od, gof_calc, trial)
     rmsn = results["Best_RMSN"]
 
     return rmsn
