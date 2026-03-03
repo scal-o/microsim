@@ -1,8 +1,9 @@
 import click
+from tqdm import tqdm
+
 from dynamic.bus_manager import RSBusManager
 from dynamic.manager import RunManager
 from dynamic.tl_controller import TLSManager
-from tqdm import tqdm
 
 
 @click.command(name="pt-prio-simulation")
@@ -18,7 +19,7 @@ def pt_prio_simulation(output_dir: str):
         output_dir = "bus_ptp"
 
     # initialize the run manager with the correct output dir
-    with RunManager(output_prefix=output_dir) as ctx:
+    with RunManager(cfg="dynamic/configs/dyn_config_prio.sumocfg", output_prefix=output_dir) as ctx:
         # initialize bus manager with request stops mode
         buses = RSBusManager(ctx)
         # initialize the traffic light controller for bus prioritization

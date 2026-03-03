@@ -112,8 +112,10 @@ class Bus:
         """Sets the duration of the next stop of the bus (does nothing if no next stop)"""
 
         # sets the bus stop duration and freezes it so it cannot be updated again for this stop
+        # reset the cache so the next calls to self.next_stop will have the updated data
         if self.next_stop and self._duration_set_for != self.next_stop_id:
-            traci.vehicle.setBusStop(self.id, self.next_stop_id, duration)
+            traci.vehicle.setStopParameter(self.id, 0, "duration", str(duration))
+            self._next_stop_updated = -1
             self._duration_set_for = self.next_stop_id
 
     @property
