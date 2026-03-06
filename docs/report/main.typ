@@ -16,10 +16,17 @@
 )
 
 = Introduction
-Traffic simulation models are invaluable tools in traffic planning and management.
+Traffic simulation models are invaluable tools in traffic planning and management. Traffic forecasts are one of the foremost information tools used by decision makers in transportation matters such as transportation policies and infrastructure investments, with significant impacts on communities and society as a whole.
 
-REF cite Flyvbjerg et al (calibration keynote on moodle) \
-The inaccuracy in traffic forecasts can have significant impacts on communit and society as a whole: since traffic simulations are often used as a reliable source of information by policy and decision makers, their wrongness can lead to --- of public money etc and to wrong investments that might not actually be needed or could be outright detrimental to the transportation system health.
+In the early 2000s, Flyvbjerg et al (INSERT REFS) extensively analyzed the economic and traffic impacts of infrastructure projects undertaken in the previous decades. Among their findings, they highlighted that more than 50% of all projects reported differences in the forecasted and actual traffic demand above 20%, and that over 90% of the projects incurred in some measure of cost escalation, meaning the final cost was higher than the initial estimates. To top this off, they also underline that these --- do not demonstrate --- trends in their analysis period (ranging from the 1930s to the end of the 20th century).
+
+This alone already does not paint a --- landscape: inaccurate models can lead to possibly wrong or at least not optimal choices in transportation policies and infrastructure design, whose cost is more often than not underestimated, leading to --- of public money.
+
+One of the reasons behind the inaccuracy of traffic forecasts is the complexity of traffic modeling itself: a complete traffic model must account for several --- components, from the microscopic variables that influence driving behavior, to the drivers of route choice and pathing, all the way up to the definition of the overarching traffic flows.
+Each of these sub-components can be modelled in different ways, with different complexities and parameters, and each layer introduces errors and indirections which contribute to the inaccuracy of the final model.
+Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment INSERT REFS) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, which adds on the uncertainty of the measurements themselves.
+
+
 
 
 Modeling traffic is a complex endeavor: in the last hundred years, countless models have been developed to try and model human choice and driving behavior in a satisfying manner. Some of the models include GHR. IDM, ---- , all car following models etc. Even if we look at traffic on a bigger scale (meso- and macro-scopic simulations) a lot of the original problems remain: how can we model the way humans take pathing decisions? What are the variables and parameters that come at play?
