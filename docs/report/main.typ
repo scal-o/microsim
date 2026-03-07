@@ -89,6 +89,8 @@ Therefore, we chose to set the number of simulation replications to 15, and to e
 
 
 == Task 2: Explolratioin in GoF function and input space
+
+=== On the superiority of RMSN
 The next task requires us to explore the viability and applicability of multiple goodness of fit functions to our problem, and to analyze and explore the input space to find a more solution (historic, a priori parameters).
 This initial solution will then be used as input for our calibration / optimization process.
 The optimization process uses the SPSA (Simultaneous Perturbation Stochastic Approximation) by Spall etal REF to calibrate the input OD matrix. The algorithm's hyperparameters are optimized themselves using an automatic search in the parameter space, powered by the Optuna package in python, which offers a plug-in system to explore it via a Parzen Tree (bayesian optimization etc).
