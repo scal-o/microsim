@@ -1,0 +1,13 @@
+busStop;scenario;mean_duration
+bs_1;dynamic dwell times;15.333333333333334
+bs_1;request stops;13.916666666666666
+bs_1;status quo;30.0
+bs_2;dynamic dwell times;16.333333333333332
+bs_2;request stops;20.166666666666668
+bs_2;status quo;30.0
+bs_3;dynamic dwell times;15.916666666666666
+bs_3;request stops;17.416666666666668
+bs_3;status quo;30.0
+bs_4;dynamic dwell times;15.083333333333334
+bs_4;request stops;6.916666666666667
+bs_4;status quo;30.0
