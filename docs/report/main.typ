@@ -8,7 +8,7 @@
 
   authors: "Alessandro Scalese",
   date: datetime(year: 2026, month: 03, day: 13),
-  bibliography: bibliography("refs.bib"),
+  bibliography: bibliography("Calibration.bib", style: "apa"),
   figure-index: (enabled: true),
   table-index: (enabled: true),
   listing-index: (enabled: false),
@@ -23,19 +23,19 @@
 = Introduction
 Traffic simulation models are invaluable tools in traffic planning and management. Traffic forecasts are one of the foremost information tools used by decision makers in transportation matters such as transportation policies and infrastructure investments, with significant impacts on communities and society as a whole.
 
-In the early 2000s, Flyvbjerg et al (INSERT REFS) extensively analyzed the economic and traffic impacts of infrastructure projects undertaken in the previous decades. Among their findings, they highlighted that more than 50% of all projects reported differences in the forecasted and actual traffic demand above 20%, and that over 90% of the projects incurred in some measure of cost escalation, meaning the final cost was higher than the initial estimates. To top this off, they also underline that these --- do not demonstrate --- trends in their analysis period (ranging from the 1930s to the end of the 20th century).
+In the early 2000s, @flyvbjerg_how_2003 @flyvbjerg_how_2005  extensively analyzed the economic and traffic impacts of infrastructure projects undertaken in the previous decades. Among their findings, they highlighted that more than 50% of all projects reported differences in the forecasted and actual traffic demand above 20%, and that over 90% of the projects incurred in some measure of cost escalation, meaning the final cost was higher than the initial estimates. To top this off, they also underline that these --- do not demonstrate --- trends in their analysis period (ranging from the 1930s to the end of the 20th century).
 
 This alone already does not paint a --- landscape: inaccurate models can lead to possibly wrong or at least not optimal choices in transportation policies and infrastructure design, whose cost is more often than not underestimated, leading to --- of public money.
 
 One of the reasons behind the inaccuracy of traffic forecasts is the complexity of traffic modeling itself: a complete traffic model must account for several --- components, from the microscopic variables that influence driving behavior, to the drivers of route choice and pathing, all the way up to the definition of the overarching traffic flows.
 Each of these sub-components can be modelled in different ways, with different complexities and parameters, and each layer introduces errors and indirections which contribute to the inaccuracy of the final model.
-Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment INSERT REFS) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, leading to an undetermined optimization problem.
+Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment @de_dios_ortuzar_modelling_2024) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, leading to an undetermined optimization problem.
 
 In this context, calibration can then be defined as the systematic adjustment of the model's parameters to minimize the discrepancy between real world measurements and the model's predictions. In transport modeling, these parameters are generally categorized into two groups: supply and demand. Supply parameters describe the physical and operational characteristics of the transportation system, including network geometry, speed limits, signal timings, as well as the microscopic driving behavior parameters that dictate how vehicles interact with the infrastructure (e.g. the lane-changing logic parameters). Demand parameters instead define the general population behavior - i.e. the location and amount of trips, which are typically represented in the OD matrix.
 
-In our case, we are going to use a microscopic traffic simulator, SUMO (INSERT REFS), as our model, using its default driving behavior and transport supply parameters. This leaves the demand parameters - the OD matrix - to be calibrated.
+In our case, we are going to use a microscopic traffic simulator, SUMO @lopez_microscopic_2018, as our model, using its default driving behavior and transport supply parameters. This leaves the demand parameters - the OD matrix - to be calibrated.
 
-As the simulator acts as a "black-box" function, meaning we can only control the inputs (the OD matrix) and observe the outputs (the sensors measurements), but we do not have an analytical form that describes the relationship between them, we are precluded from using common gradient descent optimization algorithms due to computational limitations. In fact, estimating the gradient using (for example) a Finite Differences approach would require us to compute $2N$ function evaluations (i.e. simulations), where $N$ is the number of parameters, which quickly becomes infeasible as the network grows (as both the number of parameters and the computational requirements of the simulations typically grow with the network's size). Therefore, in transport model calbration, the optimization algorithm choice often falls onto the Simultaneous Perturbation Stochastic Approximation algorithm, originally developed by Spall et al (INSERT REFS), which only requires $2$ function evaluations to estimate the local gradient.
+As the simulator acts as a "black-box" function, meaning we can only control the inputs (the OD matrix) and observe the outputs (the sensors measurements), but we do not have an analytical form that describes the relationship between them, we are precluded from using common gradient descent optimization algorithms due to computational limitations. In fact, estimating the gradient using (for example) a Finite Differences approach would require us to compute $2N$ function evaluations (i.e. simulations), where $N$ is the number of parameters, which quickly becomes infeasible as the network grows (as both the number of parameters and the computational requirements of the simulations typically grow with the network's size). Therefore, in transport model calbration, the optimization algorithm choice often falls onto the Simultaneous Perturbation Stochastic Approximation algorithm, originally developed by @spall_overview_1998, which only requires $2$ function evaluations to estimate the local gradient.
 
 This algorithm and one of its variants will be used in the first part of this study, which focuses on the calibration of a traffic model for the city of Aachen. The second part of the study focuses instead on some dynamic applications such as Public Transport control and prioritization.
 
@@ -89,12 +89,12 @@ Furthermore, we also looked into the characteristics of the outputs of the senso
 Therefore, we chose to set the number of simulation replications to 15, and to exclude non-compliant sensors from the subsequent calibration process, in order to focus on the sensors with the highest signal-to-noise ratio.
 
 
-== Task 2: Explolratioin in GoF function and input space
+== Task 2: Exploration in Goodness of Fit functions and input space
 
-=== On the superiority of RMSN
+=== GoF exploration
 In @calib-req-rep-num[section], we briefly established that low traffic volumes are more sensitive to stochastic noise compared to higher ones. A similar pattern needs to be taken into account during the choice of a proper Goodness of Fit (GoF) function. A GoF is a function that quantifies the "distance" of our model's results from the true values. It is the main indicator on which the optimization process is based, as it is used to derive the objective function value and, consequently, the direction of the optimization step.
 
-It follows that the choice of a suitable GoF function is of paramount importance to the overall success of the calibration process. Some common objective functions, like the Root Mean Square Error (RMSE) and the Mean Average Percentage Error, are widely used in the literature as GoF functions for a variety of optimization problems. However, they may not be well-suited for the application on traffic calibration problems.
+It follows that the choice of a suitable GoF function is of paramount importance to the overall success of the calibration process @hellinga_requirements_1998. Some common objective functions, like the Root Mean Square Error (RMSE) and the Mean Absolute Percentage Error, are widely used in the literature as GoF functions for a variety of optimization problems. However, they may not be well-suited for the application on traffic calibration problems.
 
 ==== MAPE
 The definition of MAPE computes the percentage error for each measurement by dividing the error for the true value:
@@ -116,7 +116,7 @@ $
 $
 where $N$, $overline(y)_i$ and $y_("sim", i)$ are defined as in the previous section.
 
-As the RMSE squares the individual errors before averaging, it penalizes larger errors more heavily than smaller ones, therefore tending to be dominated by the errors on high-flow links. Moreover, it is an absolute metric, meaning that it weighs errors of different significance (e.g. an error of 100 vehicles on an Autobahn and on a residential street) on the same scale.
+As the RMSE squares the individual errors before averaging, it penalizes larger errors more heavily than smaller ones, therefore tending to be dominated by the errors on high-flow links @toledo_statistical_2004. Moreover, it is an absolute metric, meaning that it weighs errors of different significance (e.g. an error of 100 vehicles on an Autobahn and on a residential street) on the same scale.
 
 ==== RMSN
 The Normalized Root Mean Square Error (RMSN or NRMSE) is computed by weighing the RMSE against the global mean of the observations:
@@ -127,8 +127,24 @@ $
 
 In contrast with the previous options, RMSN effectively balances the aggregate error by the total observed volume, avoiding both instability on small flows and the dominance of potential outliers. On top of this, it also is a dimensionless value, which also allows for a fair comparison across networks and varying traffic conditions. It is then a robust objective function choice for traffic calibration problem.
 
+==== GLS-based weighting schemes
+While the error metrics presented so far treat all observations with equal structural weights, a Generalized Least Squares (GLS) framework allows to explicitly incorporate the uncertainty associated with the data in the objective function formulation, effectively weighing the measurements based on their reliability. @cascetta_dynamic_1993 introduced a simple weighting scheme that makes use of the observations' variance-covariance matrix:
+$
+  "GLS" = (Y_("sim") - overline(Y))^T V^(-1)(Y_("sim") - overline(Y))
+$
+where:
+/ $Y_"sim"$: observations vector
+/ $overline(Y)$: true values vector
+/ $V^(-1)$: inverse of the variance-covariance matrix
 
-The next task requires us to explore the viability and applicability of multiple goodness of fit functions to our problem, and to analyze and explore the input space to find a more solution (historic, a priori parameters).
+Using this approach, the residuals are weighed individually by the inverse of their variance, down-weighing less reliable observations such as measurements from sensors on low-flow links, which as stated before exhibit higher relative variance and are more susceptible to the simulator's stochastic noise.
+In an optimization perspective, this --- that the calibration process is guided by high quality data points (i.e. sensors with high signal-to-noise ratios), reducing the impact of the simulator's stochasticity.
+
+This aligns with what we have done in terms of filtering out non statistically significant measurements: our approach can thus be seen as a simplification of a GLS weighting scheme, as we are removing from the GoF computation measurements with high intrinsic variance.
+
+
+=== Input space exploration
+
 This initial solution will then be used as input for our calibration / optimization process.
 The optimization process uses the SPSA (Simultaneous Perturbation Stochastic Approximation) by Spall etal REF to calibrate the input OD matrix. The algorithm's hyperparameters are optimized themselves using an automatic search in the parameter space, powered by the Optuna package in python, which offers a plug-in system to explore it via a Parzen Tree (bayesian optimization etc).
 We added a slight change to the basic spsa approach: we used common random number generation to run simulation for both the plus and minus perturbations with the same seeds, which should in theory at least help isolate the effects of the perturbations from the simulator's stochasticity. This proved (empirically) to speed up the algorithm convergence.
@@ -179,6 +195,7 @@ Instead of a simple "green time compensation" mechanism, we are going to impleme
 This is done by extending the major phase time and reducing the duration of the bus phase to bring them back in sync.
 
 Very good results: significant reduction in travel times already with just one prioritized traffic light. Good reason to try and implement this in other junctions and for other bus lines as well, good pilot project.
+
 
 
 
