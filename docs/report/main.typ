@@ -1,4 +1,5 @@
 #import "@preview/ilm:2.0.0": *
+#import "@preview/grape-suite:3.1.0": exercise.list-todos, exercise.todo
 
 #set text(lang: "en")
 
@@ -15,6 +16,8 @@
   raw-text: "use-typst-default",
 )
 
+#list-todos()
+
 = Introduction
 Traffic simulation models are invaluable tools in traffic planning and management. Traffic forecasts are one of the foremost information tools used by decision makers in transportation matters such as transportation policies and infrastructure investments, with significant impacts on communities and society as a whole.
 
@@ -24,31 +27,64 @@ This alone already does not paint a --- landscape: inaccurate models can lead to
 
 One of the reasons behind the inaccuracy of traffic forecasts is the complexity of traffic modeling itself: a complete traffic model must account for several --- components, from the microscopic variables that influence driving behavior, to the drivers of route choice and pathing, all the way up to the definition of the overarching traffic flows.
 Each of these sub-components can be modelled in different ways, with different complexities and parameters, and each layer introduces errors and indirections which contribute to the inaccuracy of the final model.
-Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment INSERT REFS) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, which adds on the uncertainty of the measurements themselves.
+Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment INSERT REFS) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, leading to an undetermined optimization problem.
 
+In this context, calibration can then be defined as the systematic adjustment of the model's parameters to minimize the discrepancy between real world measurements and the model's predictions. In transport modeling, these parameters are generally categorized into two groups: supply and demand. Supply parameters describe the physical and operational characteristics of the transportation system, including network geometry, speed limits, signal timings, as well as the microscopic driving behavior parameters that dictate how vehicles interact with the infrastructure (e.g. the lane-changing logic parameters). Demand parameters instead define the general population behavior - i.e. the location and amount of trips, which are typically represented in the OD matrix.
 
+In our case, we are going to use a microscopic traffic simulator, SUMO (INSERT REFS), as our model, using its default driving behavior and transport supply parameters. This leaves the demand parameters - the OD matrix - to be calibrated.
 
+As the simulator acts as a "black-box" function, meaning we can only control the inputs (the OD matrix) and observe the outputs (the sensors measurements), but we do not have an analytical form that describes the relationship between them, we are precluded from using common gradient descent optimization algorithms due to computational limitations. In fact, estimating the gradient using (for example) a Finite Differences approach would require us to compute $2N$ function evaluations (i.e. simulations), where $N$ is the number of parameters, which quickly becomes infeasible as the network grows (as both the number of parameters and the computational requirements of the simulations typically grow with the network's size). Therefore, in transport model calbration, the optimization algorithm choice often falls onto the Simultaneous Perturbation Stochastic Approximation algorithm, originally developed by Spall et al (INSERT REFS), which only requires $2$ function evaluations to estimate the local gradient.
 
-Modeling traffic is a complex endeavor: in the last hundred years, countless models have been developed to try and model human choice and driving behavior in a satisfying manner. Some of the models include GHR. IDM, ---- , all car following models etc. Even if we look at traffic on a bigger scale (meso- and macro-scopic simulations) a lot of the original problems remain: how can we model the way humans take pathing decisions? What are the variables and parameters that come at play?
+This algorithm and one of its variants will be used in the first part of this study, which focuses on the calibration of a traffic model for the city of Aachen. The second part of the study focuses instead on some dynamic applications such as Public Transport control and prioritization.
 
-the most complex (and accurate) models in use today require accurate calibration of countless variables just to describe human behavior, which is not a universal constant but changes based on the culture, topology, --- of the problem we consider.
+Indeed, this also showcases one of the unique advantages of SUMO: the ability to use its TraCI (Traffic Control Interface) API for fine-grained control over the simulation state, which allows us to implement real-time measurements and adaptive control strategies.
 
-In addition to this, we have the constant and sometimes insurmontable lack of data: even knowing the whereaouts (origin and destination) of trips in a specific city is a challenge: in the most common example of traffic assignment, which is the four step model, this data that should be the most basic input for our problem has to be modeled from somewhere. This introduces layers upon layers of indirections and assumptions that we have to make, each of which contributes non-insignificantly to the inaccuracy of the final model.
+#todo[REFINE AFTER WRITING]
+In the following sections, ---:
+The following chapters are organized as follows: Section 2 describes the Aachen network and the statistical determination of simulation replications; Section 3 details the SPSA-based calibration methodology and results; finally, Section 4 presents the TraCI-based implementation of dynamic Public Transport strategies.
 
-REF find something about the data quality \
-This is exhacerbated by the lack of quality data in sufficient quantities. In most cities, when sensors are present (which is often not the case for small and medium cities), the network coverage is often sparse and uneven, leading to more difficulties.
-
-What we call calibration here is the optimization of the model parameters to obtain from our simulation results that resemble the real traffic scenarios as closely as possible.
-In our case, these parameters reduce to the OD pairs that describe the number of trips between each origin and demand zone. As the number of OD pairs increases quadratically with the number of zones in our problem, it is easy to understand that even for smallish networks, we have a huge number of parameters to calibrate.
 
 = Calibration
 
-== Scenario analysis
-We are tasked with calibrating the origin-demand matrix for the morning peak-hour period (8-9am) for a reduced network from the city of Aachen, in Germany. The network has been divided in twenty-three TAZes (Traffic Assignment Zones), which define the origin and destination of all trips on the network. This subdivision results in a total of 529 calibrable parameters (OD pairs).
+We are tasked with calibrating the origin-demand matrix for the morning peak-hour period (8-9am) for a medium sized network from the city of Aachen, in Germany. The network has been divided in twenty-three TAZes (Traffic Assignment Zones), which define the origin and destination of all trips on the network. This subdivision results in a total of 529 calibrable parameters (OD pairs).
+The simulation data will be collected by 599 synthetic loop detectors (around 15% coverage), which record counts, speeds and densities on a variety of links across the network.
 
-The network also presents five hundred ninety nine loop detectors, which will be used in the simulation to record the counts, speeds and densities on various links on the network. While this might seem like a high number of sensors, we have to consider that all these sensors only cover around 15% of the network (which consists of more than four thousand individual links, or edges).
+== Simulation replications
 
-We also have a collection of the results of one hundred simulations, which we will need to use to determine the number of simulation replications required to account for the simulator intrinsic stochasticity. Indeed, our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic, meaning that some of the variables used to model individual driving behavior are treated as random variables and therefore cause the results of multiple simulations on the same input data to give potentially different results. This data helps us quantify these differences and understan what sensors give us relevant (i.e. statistically significant results) and for how many simulations (this means we have to run the simulation x number of times and then average the results to get meaningful results).
+=== The white noise hypothesis
+Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, speed inconsistencies), introduce various levels of randomicity which have to be accounted for when analysing the model's output.
+As a consequence of this stochasticity, the same input parameters (OD flows) can lead to different results, meaning a single simulation run is not representative of the average traffic state across the network, but is one of the many possible realizations of the traffic process. To account for this variability, we need to adopt a "white noise" hypothesis, meaning that we assume that the variability in simulation outputs (meaning the error between them and the true values) follows a normal distrbution with zero mean and no systematic bias.
+
+Mathematically, we can express this as:
+$
+  Y_i = overline(Y) + e
+$
+where:
+/ $Y_i$: are the outputs of a single simulation run
+/ $overline(Y)$: is the true expected value of the system
+/ $e_i$: represents the stochastic noise
+
+Under the white noise assumption, $e$ is assumed to be indipenently and identically distributed, justifying the use of the sample mean across multiple simulation replications as a reasonable estimator of the network state.
+
+=== Estimating the required replications number
+In order to determine the number of samples required to get statistically significant outputs with a 95% confidence interval and a 10% tolerance for each link, we are going to use a collection of data from 100 previous simulation runs. We can compute this number by applying the formula:
+
+$
+  n = [(2t_((a/2, n-1)) s) / (W)]^2
+$
+where:
+/ n: minmum number of required runs
+/ s: standard deviation
+/ W: desired tolerance width
+/ $alpha$: significance level
+/ $t_((a/2, n-1))$: student's $t$ statistic
+
+This computation needs to be repeated for each sensor, for each number of simulations we want to investigate. If the resulting $n$ for the sensor is lower than the number of simulations tested, that means the sensor gives statistically significant results for that number of simulations.
+
+As we are bound by computing time, we decided to test for up to 30 simulation runs. In #todo[insert figure: proportion of sensors with stat signif res], it can be seen that for 15 simulation runs, over 90% of the sensors have statistically significant outputs. Further increasing the number of simulations does not significantly increase the percentage of ---, at least not in a way that --- the increased computational effort. Therefore, we chose to average the results of 15 simulations with random seeds.
+
+We also looked into the actual outputs of the affected sensors to check if they were of any importance to the simulation. As can be seen in #todo[insert figure: average counts for excluded sensors], the majority of the sensors not giving ss results have very low flows, and thus can be safely excluded from the ---.
+
 
 The next task requires us to explore the viability and applicability of multiple goodness of fit functions to our problem, and to analyze and explore the input space to find a more solution (historic, a priori parameters).
 This initial solution will then be used as input for our calibration / optimization process.
