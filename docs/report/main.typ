@@ -44,12 +44,12 @@ In the following sections, ---:
 The following chapters are organized as follows: Section 2 describes the Aachen network and the statistical determination of simulation replications; Section 3 details the SPSA-based calibration methodology and results; finally, Section 4 presents the TraCI-based implementation of dynamic Public Transport strategies.
 
 
-= Calibration
+= Model Calibration
 
 We are tasked with calibrating the origin-demand matrix for the morning peak-hour period (8-9am) for a medium sized network from the city of Aachen, in Germany. The network has been divided in twenty-three TAZes (Traffic Assignment Zones), which define the origin and destination of all trips on the network. This subdivision results in a total of 529 calibrable parameters (OD pairs).
 The simulation data will be collected by 599 synthetic loop detectors (around 15% coverage), which record counts, speeds and densities on a variety of links across the network.
 
-== Simulation replications
+== Task 1: Evaluating simulation replications
 
 === The white noise hypothesis
 Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, speed inconsistencies), introduce various levels of randomicity which have to be accounted for when analysing the model's output.
@@ -66,7 +66,7 @@ where:
 
 Under the white noise assumption, $e$ is assumed to be indipenently and identically distributed, justifying the use of the sample mean across multiple simulation replications as a reasonable estimator of the network state.
 
-=== Estimating the required replications number
+=== Evaluating the required replications number
 In order to determine the number of samples required to get statistically significant outputs with a 95% confidence interval and a 10% tolerance for each link, we are going to use a collection of data from 100 previous simulation runs. We can compute this number by applying the formula:
 
 $
@@ -79,13 +79,16 @@ where:
 / $alpha$: significance level
 / $t_((a/2, n-1))$: student's $t$ statistic
 
-This computation needs to be repeated for each sensor, for each number of simulations we want to investigate. If the resulting $n$ for the sensor is lower than the number of simulations tested, that means the sensor gives statistically significant results for that number of simulations.
+This computation needs to be performed for each sensor, across the range of simulations we want to investigate. A sensor is considered to give statistically significant results if the resulting required number of simulation replications, $n$, is lower than or equal to the number of simulations for which the test was conducted.
 
-As we are bound by computing time, we decided to test for up to 30 simulation runs. In #todo[insert figure: proportion of sensors with stat signif res], it can be seen that for 15 simulation runs, over 90% of the sensors have statistically significant outputs. Further increasing the number of simulations does not significantly increase the percentage of ---, at least not in a way that --- the increased computational effort. Therefore, we chose to average the results of 15 simulations with random seeds.
+We decided to test the statistical significance of the sensors for up to 30 smulation runs to evaluate the trade-off between significance of the results and processing time. In #todo[insert figure: proportion of sensors with stat signif res], it can be seen that, for 15 simulation runs, over 90% of the sensors provide statistically significant outputs. Further increasing the number of simulations does not significantly increase the percentage of ---, at least not in a way that justifies the increased computational effort.
 
-We also looked into the actual outputs of the affected sensors to check if they were of any importance to the simulation. As can be seen in #todo[insert figure: average counts for excluded sensors], the majority of the sensors not giving ss results have very low flows, and thus can be safely excluded from the ---.
+Furthermore, we also looked into the characteristics of the outputs of the sensors that did not meet the statistical significance requirement for 15 simulation runs: as shown in #todo[insert figure: average counts for excluded sensors], the majority of the sensors not yielding statistically significant results are characterized by extremely low traffic volumes, which are inherently more sensitive to stochastic fluctuations.
+
+Therefore, we chose to set the number of simulation replications to 15, and to exclude non-compliant sensors from the subsequent calibration process, in order to focus on the sensors with the highest signal-to-noise ratio.
 
 
+== Task 2: Explolratioin in GoF function and input space
 The next task requires us to explore the viability and applicability of multiple goodness of fit functions to our problem, and to analyze and explore the input space to find a more solution (historic, a priori parameters).
 This initial solution will then be used as input for our calibration / optimization process.
 The optimization process uses the SPSA (Simultaneous Perturbation Stochastic Approximation) by Spall etal REF to calibrate the input OD matrix. The algorithm's hyperparameters are optimized themselves using an automatic search in the parameter space, powered by the Optuna package in python, which offers a plug-in system to explore it via a Parzen Tree (bayesian optimization etc).
