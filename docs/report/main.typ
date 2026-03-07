@@ -16,6 +16,8 @@
   raw-text: "use-typst-default",
 )
 
+#show heading.where(level: 4): set heading(numbering: none)
+
 #list-todos()
 
 = Introduction
@@ -52,8 +54,8 @@ The simulation data will be collected by 599 synthetic loop detectors (around 15
 == Task 1: Evaluating simulation replications
 
 === The white noise hypothesis
-Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, speed inconsistencies), introduce various levels of randomicity which have to be accounted for when analysing the model's output.
-As a consequence of this stochasticity, the same input parameters (OD flows) can lead to different results, meaning a single simulation run is not representative of the average traffic state across the network, but is one of the many possible realizations of the traffic process. To account for this variability, we need to adopt a "white noise" hypothesis, meaning that we assume that the variability in simulation outputs (meaning the error between them and the true values) follows a normal distrbution with zero mean and no systematic bias.
+Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, rerouting probability), introduce various levels of randomicity which have to be accounted for when analysing the model's output.
+As a consequence of this stochasticity, the same input parameters (OD flows) can lead to different results, meaning a single simulation run is not representative of the average traffic state across the network. To account for this variability, we need to adopt a "white noise" hypothesis, meaning that we assume that the variability in simulation outputs (meaning the error between them and the true values) follows a normal distrbution with zero mean and no systematic bias.
 
 Mathematically, we can express this as:
 $
@@ -66,18 +68,17 @@ where:
 
 Under the white noise assumption, $e$ is assumed to be indipenently and identically distributed, justifying the use of the sample mean across multiple simulation replications as a reasonable estimator of the network state.
 
-=== Evaluating the required replications number
+=== Evaluating the required replications number <calib-req-rep-num>
 In order to determine the number of samples required to get statistically significant outputs with a 95% confidence interval and a 10% tolerance for each link, we are going to use a collection of data from 100 previous simulation runs. We can compute this number by applying the formula:
 
 $
-  n = [(2t_((a/2, n-1)) s) / (W)]^2
+  n = [(2t_((alpha\/2, n-1)) dot sigma) / (W)]^2
 $
 where:
-/ n: minmum number of required runs
-/ s: standard deviation
-/ W: desired tolerance width
-/ $alpha$: significance level
-/ $t_((a/2, n-1))$: student's $t$ statistic
+/ n: number of required simulations
+/ t: t-students statistic (for $alpha\/2$ significance, $n-1$ DOF)
+/ $sigma$: standard deviation
+/ $W$: width of tolerance interval
 
 This computation needs to be performed for each sensor, across the range of simulations we want to investigate. A sensor is considered to give statistically significant results if the resulting required number of simulation replications, $n$, is lower than or equal to the number of simulations for which the test was conducted.
 
@@ -91,6 +92,42 @@ Therefore, we chose to set the number of simulation replications to 15, and to e
 == Task 2: Explolratioin in GoF function and input space
 
 === On the superiority of RMSN
+In @calib-req-rep-num[section], we briefly established that low traffic volumes are more sensitive to stochastic noise compared to higher ones. A similar pattern needs to be taken into account during the choice of a proper Goodness of Fit (GoF) function. A GoF is a function that quantifies the "distance" of our model's results from the true values. It is the main indicator on which the optimization process is based, as it is used to derive the objective function value and, consequently, the direction of the optimization step.
+
+It follows that the choice of a suitable GoF function is of paramount importance to the overall success of the calibration process. Some common objective functions, like the Root Mean Square Error (RMSE) and the Mean Average Percentage Error, are widely used in the literature as GoF functions for a variety of optimization problems. However, they may not be well-suited for the application on traffic calibration problems.
+
+==== MAPE
+The definition of MAPE computes the percentage error for each measurement by dividing the error for the true value:
+
+$
+  "MAPE" = 1 / N sum^N_(i = 1) lr(bar med overline(y)_i - y_("sim",i) / overline(y)_i med bar)
+$
+where:
+/ $N$: number of observations (sensors)
+/ $overline(y)_i$: true value for sensor $i$
+/ $y_("sim",i)$: observed (simulated) value for sensor $i$
+
+From the formula, it is evident that, for small flows, the value of the function can explode. This would result in a disproportionate importance given to secondary flows, which as we have seen are also the ones more sensitive to stochastic variability.
+
+==== RMSE
+The RMSE is defined as the square root of the mean square error:
+$
+  "RMSE" = sqrt(1 / N sum_(i = 1)^N (overline(y)_i - y_("sim", i))^2)
+$
+where $N$, $overline(y)_i$ and $y_("sim", i)$ are defined as in the previous section.
+
+As the RMSE squares the individual errors before averaging, it penalizes larger errors more heavily than smaller ones, therefore tending to be dominated by the errors on high-flow links. Moreover, it is an absolute metric, meaning that it weighs errors of different significance (e.g. an error of 100 vehicles on an Autobahn and on a residential street) on the same scale.
+
+==== RMSN
+The Normalized Root Mean Square Error (RMSN or NRMSE) is computed by weighing the RMSE against the global mean of the observations:
+
+$
+  "RMSN" = sqrt(N dot sum_(i = 1)^N (overline(y)_i - y_("sim", i))^2) / (sum_(i = 1)^N y_i)
+$
+
+In contrast with the previous options, RMSN effectively balances the aggregate error by the total observed volume, avoiding both instability on small flows and the dominance of potential outliers. On top of this, it also is a dimensionless value, which also allows for a fair comparison across networks and varying traffic conditions. It is then a robust objective function choice for traffic calibration problem.
+
+
 The next task requires us to explore the viability and applicability of multiple goodness of fit functions to our problem, and to analyze and explore the input space to find a more solution (historic, a priori parameters).
 This initial solution will then be used as input for our calibration / optimization process.
 The optimization process uses the SPSA (Simultaneous Perturbation Stochastic Approximation) by Spall etal REF to calibrate the input OD matrix. The algorithm's hyperparameters are optimized themselves using an automatic search in the parameter space, powered by the Optuna package in python, which offers a plug-in system to explore it via a Parzen Tree (bayesian optimization etc).
