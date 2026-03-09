@@ -144,12 +144,119 @@ This aligns with what we have done in terms of filtering out non statistically s
 
 
 === Input space exploration
+After establishing the use of the RMSN as the primary GoF metric, we conducted a line search to explore the sensitivity of the simulation to global variations in the input demand. We evaluated the performance of the model under different initial OD matrix multipliers, ranging from 0.1 to 2.0 with a 0.1 step size by computing our chosen GoG metric (RMSN) for three measures of performance (MOPs): counts, speeds, and densities.
 
-This initial solution will then be used as input for our calibration / optimization process.
-The optimization process uses the SPSA (Simultaneous Perturbation Stochastic Approximation) by Spall etal REF to calibrate the input OD matrix. The algorithm's hyperparameters are optimized themselves using an automatic search in the parameter space, powered by the Optuna package in python, which offers a plug-in system to explore it via a Parzen Tree (bayesian optimization etc).
-We added a slight change to the basic spsa approach: we used common random number generation to run simulation for both the plus and minus perturbations with the same seeds, which should in theory at least help isolate the effects of the perturbations from the simulator's stochasticity. This proved (empirically) to speed up the algorithm convergence.
+The primary goal of this initial search is to identify potential systematic biases in the initial (a priori) OD matrices (i.e. a substantial over- or under-estimation of the real OD values). This way, we can select a starting point that is closer to the ---.
 
-After this initial optimization approach, we also developed following REF a PC-SPSA algorithm, which leverages Principal Component Analysis of the historical data to reduce the problem space (in our case, from 530 parameters to around 30), which speeds up optimization and also yields better results. The tuning of the hyperparameters was, again, done using optuna in an automatic search approach.
+The results of the exploration reveal distinct sensitivities for the three MOPs, as can be seen in #todo[inserire primo plot rmsn]:
+- For traffic counts, the minimum RMSN occurs at a multiplier of 0.8.
+- For densities, the minimum RMSN occurs at a multiplier of 0.6.
+- For speeds, the RMSN remained consistently low (around 10%) across the whole multiplier range, showing a distinctly low variability.
+
+These initial results align with the findings of @toledo_statistical_2004, who showed that different Measures of Performance for the same -- may yield conflicting results.
+
+To better compare the sensitivity of these metrics, given their different scales (especially speeds vs the others), we normalized the RMSN values by the minimimum ones across the multiplier range. This allows us to analyze the relative --- of the metrics, highlighting the MOPs that are most responsive to demand changes. As shown in #todo[inserire plot rmsn relativo], OD changes in the explored range only have a marginal impact on the speeds, while the U-shaped counts and densities curves highlight their higher sensitivity to demand changes.
+
+
+== Task 3: Calibration using SPSA
+Following the preliminary input space exploration, we implemened the SPSA algorithm @spall_overview_1998 to perform the calibration of the Origin-Destination matrix. The algorithm implementation is based on a slightly modified version of the standard SPSA, with magnitude-dependent perturbation scaling and a common random numbers strategy for variance reduction. All relevant model and simulation setups are explained in the subsections below.
+
+=== The SPSA algorithm
+The SPSA algorithm updates the parameter vector $theta$ (in our case, the flattened OD matrix) iteratively usng a stochastic approximation of the gradient:
+$
+  theta_(k+1) = theta_k - a_k dot hat(g)_k (theta_k)
+$
+
+The gradient $hat(g)_k$ is estimated by perturbing all elements of $theta_k$ simultaneously using a random vector $Delta_k$, drawn from a $plus.minus 1$ Bernoulli distribution:
+$
+  hat(g)_k (theta_k) = (y(theta_k + c_k Delta_k) - (theta_k - c_k Delta_k)) / (2c_k Delta_k)
+$
+
+The algorithm's hyperparameters, $a_k$ and $c_k$, control the step size and the perturbation magnitude, respectively, and are typically defined as follows:
+$
+  a_k = a / (k + 1 + A)^alpha
+$
+$
+  c_k = c / (k + 1)^gamma
+$
+where $a$, $c$, $A$, $alpha$ and $gamma$ are tunable hyperparameters that influence the convergence properties of the algorithm. The choice of these hyperparameters is crucial for the performance of the algorithm, as they affect the balance between exploration and exploitation in the optimization process.
+
+==== Modifications to the standard SPSA
+In our implementation, we introduced three modifications to the standard SPSA algorithm:
+1. Magnitude-dependent perturbation scaling: instead of using a constant perturbation magnitude $c_k$ for each element of the parameter vector, we scale it based on the magnitude of the parameters themselves, which helps maintain a consistent level of relative perturbation across parameters of different scales.
+2. Common random numbers strategy: to reduce the impact of the simulator's stochasticity on the gradient estimation, we use common random numbers for both the positive and negative perturbations of the parameter vector. This should help isolate the effect of the perturbations from the inherent noise in the simulation, potentially leading to faster convergence. Empirically, we observed that the approach did indeed reduce the oscillations in the optimization process, especially in early algorithm iterations.
+3. Clipping of the parameter updates: to ensure non-negative OD flows and to prevent excessively large updates of the parameter vector, we implemented a clipping mechanism that bounds the updates in a $plus.minus 15%$ range of the current parameter values.
+
+==== Hyperparameter tuning
+As stated before, the choice of the SPSA hyperparameters is crucial for the convergence and performance of the algorithm. While there are some general guidelines for setting these hyperparameters, which can be found in the literature @spall_overview_1998 and provide an acceptable starting point, their optimal values can vay significantly depending on the specific characteristics of the problem. In our case, while maintaining the standard theoretically optimal values for the decay parameters $alpha$ and $gamma$ (0.602 and 0.101, respectively) and for the stability constant $A$ (around 10% of the total number of iterations), we performed an automatic search for the optimal values of the initial step size $a$ and perturbation magnitude $c$.
+
+More specifically, we leveraged the Optuna Python package (REFS) and its implementation of the Tree-structured Parzen Estimator (TPE) algorithm to perform a Bayesian optimization of the hyperparameters, allowing us to efficiently explore the hyperparameter space. After defining the search space for $a$ ($1, 150$) and $c$ ($0.01, 1$), we ran multiple optimization trials whose results can be seen in #todo[insert plot: hyperparameter optimization results].
+For each trial, we ran the SPSA algorithm for a fixed number of iterations (20) and evaluated the resulting RMSN (based on counts) at each iteration, using Optuna's pruning mechanism to stop unpromising trials early and focus computational resources on the most promising hyperparameter configurations.
+
+The optimal values identified at the end of the optimization process were $a = 100$ and $c = 0.6$.
+
+
+=== Simulation configuration
+For the calibration process, each simulation evaluation simulated a one-hour period (8-9am), with a warm-up period of 30 minutes (7:30-8am) to allow the system to reach a steady state before collecting data for the GoF evaluation, and a cool-down period of 30 minutes (9-9:30am) to allow the system to dissipate any congestion caused by the high demand during the peak hour. This configuration allows us to ensure the system reaches a steady state before collecting sensor data.
+
+Each simulation was replicated 15 times, and the entire calibration process was run for a total of 500 iterations.
+
+Interestingly, while the initial input space exploration suggested an optimal global scale of 0.8, early tests revealed that initializing the SPSA with a multiplier of 0.9 led to faster and more stable convergence of the algorithm.
+
+=== Objective function definition
+As discussed in the previous sections, we chose the RMSN as our GoF metric for the calibration process. In particular, we tested various GoF definitions, which differ in the weights given to the different MoPs in the RMSN computation. This allows us to analyze the impact of the choice of the GoF definition on the calibration results. The general GoF metric was defined as the weighted sum of the three MOP's RMSNs:
+$
+  "GoF" = w_c dot "RMSN"_"counts" + w_d dot "RMSN"_"densities" + w_d dot "RMSN"_"speeds"
+$
+
+The weight combinations tested were the following:
+- $w_c = 0.40, w_d = 0.50, w_s = 0.1$
+- $w_c = 0.55, w_d = 0.35, w_s = 0.1$
+- $w_c = 0.65, w_d = 0.25, w_s = 0.1$
+
+These combinations were chosen based on the results of the line search on the initial OD matrix, which showed that the speeds were relatively insensitive to changes in the demand, while counts and densities were more responsive. We thus decided to give a low weight to the speeds RMSN, while exploring different weight combinations for the counts and densities RMSNs to analyze their impact on the calibration results.
+
+
+=== Calibration results
+The results of the calibration process for the three experiments are shown in #todo[insert plot: calibration results]. All three weight combinations show a sharp initial RMSN descent in the early iterations, regardless of the specific weight combination, which suggests that the algorithm is able to quickly identify a direction of improvement in the parameter space. After this initial phase, the RMSN continues to decrease more gradually, with some oscillations, which is expected given the stochastic nature of the simulator and the optimization process.
+
+What is more interesting is looking at the individual MOPs values across the iterations. In the figure #todo[insert plot: calibration with individual ---] displays the decomposition of the unweighted RMSN components alongside the global metric for the #todo[insert weights] setup. It can be seen that, while the global weighted error stabilizes, the individul components continue to exhibit some --- trends: the algorithm seems to keep trading off minor errors between counts and densities, as dictated by their assigned weights, while the speeds remain relatively unperturbed.
+
+Overall, the final results demonstrate a successful calbration of our model for the Aachen network: #todo[insert actual values!!!]
+
+
+== Task 4: Advanced calibration with PC-SPSA
+As an extension of our calibration approach, we then proceeded to implement the Principal Component SPSA (PC-SPSA) algorithm, proposed by @qurashi_pcspsa_2020. The main benefit of this algorithm s the reduction in the dimensionality of the optimization problem, achieved by performing Principal Component Analysis (PCA) on the historical data to identify the most significant directions of variability in the parameter space. This allows to focus the optimization process on the "directions" of maximum variability, which can lead to faster convergence and better results @qurashi_pcspsa_2020.
+
+=== PCA analysis
+In order to conduct the PCA analysis required to identify the principal components of the parameter space, we generated an initial population on the three available historical OD matrices, corresponding to different morning hours (7-8am, 8-9am, 9-10am). Following the methodology in @qurashi_pcspsa_2020, we generated 25 perturbations of each matrix by applying random multipliers to the OD flows:
+$
+  "OD"_"perturbed" = (0.65 + 0.2 dot delta) dot "OD"_"base"
+$
+where $delta$ is a random variable drawn from a normal distribution with zero mean and standard deviation $sigma = 1/3$. This way, we generated a total of 75 perturbed OD matrices, which were then flattened and used as input for the PCA analysis.
+
+The original parameter space consisted of approximately 520 non-null OD pairs. By applying PCA to the generated population, and selecting the principal components that cumulatively explained 95% of the total variance, we ended up with $K = 29$ components, significantly reducing the dimensionality of the optimization problem.
+
+=== Algorithm adaptation and tuning
+In the PC-SPSA framework, the stochastic perturbations are not applied directly to the original parameter vector (i.e. to the elements of the matrix), but to the scores (eigenvalues) of the selected principal components. After the perturbation, the updated components are then projected back into the original space to reconstruct a matrix that can be used as input for the simulation.
+
+As both the geometry and scale of the problem are significantly different from the previous direct approach, we had to implement some minor modifications to the SPSA algorithm:
+- The magnitude-dependent perturbation scaling was adapted to the new problem space by using a relative (percentage) perturbation of the component scores
+- The clipping was adapted to work on the scores, ensuring that in the minimization step, the component scores would not explode etc
+
+Due to this changes and the new problem definition, the previously calibrated SPSA gain parameters $a$ and $c$ were found to be not applicable anymore. We thus conducted a new hyperparameter tuning phase via Optuna, which yielded the new PC-SPSA parameters:
+- $a = 2$
+- $c = 0.1$
+
+Additionally, the stability parameter $A$ was also adjusted and set to 20, following the common recommendation of setting it to around 10% of the total number of iterations, which in this case was set to 200 as we were expecting faster convergence compared to the plain SPSA.
+
+All other simulation (warm-up and cool-down periods, number of replications) and algorithm aspects (common random numbers for plus/minus perturbations) were kept the same as in the previous calibration approach to ensure a fair comparison between the two methods.
+
+=== Calibration results and comparison with plain SPSA
+The implementation of the PC-SPSA variant yielded significant advantages compared to the plain SPSA approach, especially in regards of computational time and convergence speed. While the standard SPSA required hundreds of iterations to reach a stable solution, the PC-SPSA was able to achieve similar results in a fraction of the iterations without compromising the final calibration quality, leading to a significant reduction in the overall computational time required for the calibration process.
+
+In the figure #todo[inserire plot comparison spsa pcspsa] we can see that the weighted RMSN achieved by PC-SPSA matches the results of the standard SPSA, but with a much faster convergence. This is likely due to the fact that the PC-SPSA focuses the optimization process on the most significant directions of variability in the parameter space, allowing it to more efficiently navigate towards optimal solutions. Moreover, the dimensionality reduction achieved by PCA also helps to mitigate the impact of the simulator's stochasticity on the optimization process, as it effectively filters out some of the noise in the parameter space.
+
 
 
 = Dynamic applications
