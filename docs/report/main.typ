@@ -15,7 +15,7 @@
   footer: "page-number-right-with-chapter",
   raw-text: "use-typst-default",
 )
-
+#set text(font: "Liberation Serif", size: 12pt)
 #show heading.where(level: 4): set heading(numbering: none)
 
 #list-todos()
@@ -25,9 +25,9 @@ Traffic simulation models are invaluable tools in traffic planning and managemen
 
 In the early 2000s, @flyvbjerg_how_2003 @flyvbjerg_how_2005  extensively analyzed the economic and traffic impacts of infrastructure projects undertaken in the previous decades. Among their findings, they highlighted that more than 50% of all projects reported differences in the forecasted and actual traffic demand above 20%, and that over 90% of the projects incurred in some measure of cost escalation, meaning the final cost was higher than the initial estimates. To top this off, they also underline that these --- do not demonstrate --- trends in their analysis period (ranging from the 1930s to the end of the 20th century).
 
-This alone already does not paint a --- landscape: inaccurate models can lead to possibly wrong or at least not optimal choices in transportation policies and infrastructure design, whose cost is more often than not underestimated, leading to --- of public money.
+This alone already does not paint a favourable landscape: inaccurate models can lead to possibly wrong or at least not optimal choices in transportation policies and infrastructure design, whose cost is more often than not underestimated, leading to misallocations of public money.
 
-One of the reasons behind the inaccuracy of traffic forecasts is the complexity of traffic modeling itself: a complete traffic model must account for several --- components, from the microscopic variables that influence driving behavior, to the drivers of route choice and pathing, all the way up to the definition of the overarching traffic flows.
+One of the reasons behind the inaccuracy of traffic forecasts is the complexity of traffic modeling itself: a complete traffic model must account for several interacting components, from the microscopic variables that influence driving behavior, to the drivers of route choice and pathing, all the way up to the definition of the overarching traffic flows.
 Each of these sub-components can be modelled in different ways, with different complexities and parameters, and each layer introduces errors and indirections which contribute to the inaccuracy of the final model.
 Furthermore, the lack of accurate data presents another challenge: the OD trips, which define the flows across the network zones, are not known a priori, but either have to be modeled from socio-economic and topological variables (as done in the four-step model for traffic assignment @de_dios_ortuzar_modelling_2024) or estimated from traffic measurements (data-driven approach). These measurements are taken from traffic sensors such as induction loops or cameras, and their coverage of city networks is often sparse and uneven, leading to an undetermined optimization problem.
 
@@ -54,7 +54,7 @@ The simulation data will be collected by 599 synthetic loop detectors (around 15
 == Task 1: Evaluating simulation replications
 
 === The white noise hypothesis
-Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, rerouting probability), introduce various levels of randomicity which have to be accounted for when analysing the model's output.
+Our simulator of choice (SUMO with mesoscopic simulations enabled) is inherently stochastic (noisy): several components of the model, which are designed to replicate human driving behavior (lane-changing decision making, rerouting probability), introduce various levels of randomness which have to be accounted for when analysing the model's output.
 As a consequence of this stochasticity, the same input parameters (OD flows) can lead to different results, meaning a single simulation run is not representative of the average traffic state across the network. To account for this variability, we need to adopt a "white noise" hypothesis, meaning that we assume that the variability in simulation outputs (meaning the error between them and the true values) follows a normal distrbution with zero mean and no systematic bias.
 
 Mathematically, we can express this as:
@@ -82,11 +82,11 @@ where:
 
 This computation needs to be performed for each sensor, across the range of simulations we want to investigate. A sensor is considered to give statistically significant results if the resulting required number of simulation replications, $n$, is lower than or equal to the number of simulations for which the test was conducted.
 
-We decided to test the statistical significance of the sensors for up to 30 smulation runs to evaluate the trade-off between significance of the results and processing time. In #todo[insert figure: proportion of sensors with stat signif res], it can be seen that, for 15 simulation runs, over 90% of the sensors provide statistically significant outputs. Further increasing the number of simulations does not significantly increase the percentage of ---, at least not in a way that justifies the increased computational effort.
+We decided to test the statistical significance of the sensors for up to 30 smulation runs to evaluate the trade-off between significance of the results and processing time. In #todo[insert figure: proportion of sensors with stat signif res], it can be seen that, for 15 simulation runs, over 90% of the sensors provide statistically significant outputs. Further increasing the number of simulations does not significantly increase the percentage of compliant sensors, at least not in a way that justifies the increased computational effort.
 
 Furthermore, we also looked into the characteristics of the outputs of the sensors that did not meet the statistical significance requirement for 15 simulation runs: as shown in #todo[insert figure: average counts for excluded sensors], the majority of the sensors not yielding statistically significant results are characterized by extremely low traffic volumes, which are inherently more sensitive to stochastic fluctuations.
 
-Therefore, we chose to set the number of simulation replications to 15, and to exclude non-compliant sensors from the subsequent calibration process, in order to focus on the sensors with the highest signal-to-noise ratio.
+Therefore, we chose to set the number of simulation replications to 15, and to exclude non-compliant sensors from the subsequent calibration process, in order to focus on the ones with the highest signal-to-noise ratio.
 
 
 == Task 2: Exploration in Goodness of Fit functions and input space
@@ -138,9 +138,9 @@ where:
 / $V^(-1)$: inverse of the variance-covariance matrix
 
 Using this approach, the residuals are weighed individually by the inverse of their variance, down-weighing less reliable observations such as measurements from sensors on low-flow links, which as stated before exhibit higher relative variance and are more susceptible to the simulator's stochastic noise.
-In an optimization perspective, this --- that the calibration process is guided by high quality data points (i.e. sensors with high signal-to-noise ratios), reducing the impact of the simulator's stochasticity.
+In an optimization perspective, this ensures that the calibration process is guided by high quality data points (i.e. sensors with high signal-to-noise ratios), thus reducing the impact of the simulator's stochasticity on the calbration process. 
 
-This aligns with what we have done in terms of filtering out non statistically significant measurements: our approach can thus be seen as a simplification of a GLS weighting scheme, as we are removing from the GoF computation measurements with high intrinsic variance.
+This aligns with what we have done in terms of filtering out non statistically significant measurements: our approach can thus be seen as a simplification of a GLS weighting scheme, as we are removing measurements with high intrinsic variance from the GoF computation.
 
 
 === Input space exploration
