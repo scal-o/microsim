@@ -32,6 +32,8 @@ DEFAULT_DETECTOR_DISTANCE = 200  # meters
 # since we don't use the actual bus speed (as it can fluctuate quite badly) we add a tolerance
 # to the times we calculate
 DEFAULT_TIME_TOLERANCE = 15  # seconds
+MAX_BUS_REDUCTION = 25  # seconds
+RESYNC_MIN_DRIFT = 0  # seconds
 
 
 class TLSManager:
@@ -77,6 +79,20 @@ class TLSManager:
 
         # prioritization plan
         self.prioritization_plan: dict[str, int] = {}
+
+        # resync plan to progressively align with the master cycle
+        self.resync_plan: dict[str, int] = {}
+
+        # master cycle tracking (ideal timeline)
+        self.master_cycle_duration = self._max_cycle_time
+        self._master_cycle_start_step = self.ctx.curr_step
+
+        # actual cycle tracking: start of the most recent phase 0 (major)
+        self._last_major_phase_start_step = self.ctx.curr_step
+        self._last_seen_phase_id = -1
+
+        # sync limits
+        self.MAX_BUS_REDUCTION = MAX_BUS_REDUCTION
 
     ## ============================================================
     ## current phase
@@ -149,9 +165,38 @@ class TLSManager:
         next_phase_id = (self.current_phase_id + 1) % len(self.phase_dict)
         traci.trafficlight.setPhase(self.junction_id, next_phase_id)
 
+    def _update_cycle_position_tracking(self) -> None:
+        """Tracks the latest start of phase 0 (major) to compute actual cycle position."""
+
+        phase_id = self.current_phase_id
+        if phase_id != self._last_seen_phase_id:
+            if phase_id == 0:
+                # if we entered phase 0 this step, phase spent duration is near 0
+                self._last_major_phase_start_step = self.ctx.curr_step - int(self.time_in_phase)
+
+            self._last_seen_phase_id = phase_id
+
+    def _calculate_drift(self) -> float:
+        """
+        Positive drift -> junction is behind ideal cycle.
+        Negative drift -> junction is ahead of ideal cycle.
+        """
+
+        self._update_cycle_position_tracking()
+
+        cycle_len = self.master_cycle_duration
+        ideal_pos = (self.ctx.curr_step - self._master_cycle_start_step) % cycle_len
+        actual_pos = (self.ctx.curr_step - self._last_major_phase_start_step) % cycle_len
+
+        # wrapped difference in range [-cycle_len/2, cycle_len/2)
+        return ((ideal_pos - actual_pos + cycle_len / 2) % cycle_len) - cycle_len / 2
+
     def _apply_bus_prio(self, bus: Bus) -> dict[str, int]:
         dist_stop = bus.next_stop_distance if bus.next_stop_distance else float("inf")
         dist_tls = bus.next_tls_distance
+        if dist_tls is None:
+            return {}
+
         # compute the travel time using an approx speed of around 30 km/h = 7 m/s
         travel_time = ceil(dist_tls / 8.5) + 2
         min_travel_time = travel_time - DEFAULT_TIME_TOLERANCE
@@ -164,6 +209,9 @@ class TLSManager:
         if dist_stop < dist_tls:
             if bus._duration_set_for != bus.next_stop_id:
                 print(f"Bus {bus.id} approaching {self.junction_id}, stop duration not set yet")
+                return {}
+
+            if not bus.next_stop:
                 return {}
 
             stop_duration = bus.next_stop.duration
@@ -226,10 +274,27 @@ class TLSManager:
                 print("Extending bus phase to serve the bus")
                 return {"bus": max_travel_time + self._time_in_phase}
 
+        return {}
+
     def _apply_intersection_sync(self):
-        pass
+        drift = self._calculate_drift()
+
+        # we only recover lagging drift by shortening bus phase
+        if drift <= RESYNC_MIN_DRIFT:
+            self.resync_plan = {}
+            return
+
+        bus_min, bus_max = self.phase_gt["bus"]
+        reduction = min(int(drift), self.MAX_BUS_REDUCTION)
+        target_bus_duration = max(bus_min, bus_max - reduction)
+
+        self.resync_plan = {"bus": target_bus_duration}
+
+        print("*** New resync plan:", self.resync_plan, "drift:", round(drift, 2))
 
     def step(self):
+        self._update_cycle_position_tracking()
+
         # check if there are buses to prioritize
         if not self.prioritization_plan:
             if self.closest_bus:
@@ -237,6 +302,10 @@ class TLSManager:
                 if self.prioritization_plan:
                     print("*** New prioritization plan: ", self.prioritization_plan)
                     traci.vehicle.setColor(self.closest_bus.id, (255, 0, 0))
+
+        # if no bus prioritization is active, attempt to create a resync plan
+        if not self.prioritization_plan and not self.resync_plan:
+            self._apply_intersection_sync()
 
         # if we are not over the in green time, return anyways
         if not self._over_min_time():
@@ -259,6 +328,23 @@ class TLSManager:
                 if self._over_max_time():
                     self._next()
                     return
+
+        # if no bus prioritization is running, apply resync plan if available
+        if self.resync_plan:
+            if self.current_phase_name in self.resync_plan:
+                print(
+                    "=== Remaining resync time in phase: ",
+                    self.resync_plan[self.current_phase_name] - self.time_in_phase,
+                )
+                if self.time_in_phase >= self.resync_plan[self.current_phase_name]:
+                    self._next()
+                    del self.resync_plan[self.current_phase_name]
+                    return
+                return
+
+            if self._over_max_time():
+                self._next()
+                return
 
         # over phase max time: go next
         if self._over_max_time():
