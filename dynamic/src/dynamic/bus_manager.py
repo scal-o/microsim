@@ -1,3 +1,4 @@
+import math
 from dynamic.bus import Bus
 from dynamic.manager import RunManager
 
@@ -22,6 +23,9 @@ class BusManager:
             if bus_id not in bus_ids:
                 del self.buses[bus_id]
 
+        for bus in self.buses.values():
+            bus.update()
+
     def set_stops_duration(self):
         """Method to set the duration of each bus stop"""
         pass
@@ -31,7 +35,7 @@ class BusManager:
         n_boarding = bus.n_boarding
         n_alighting = bus.n_alighting
 
-        duration = 15 + 0.5 * (n_boarding + n_alighting)
+        duration = math.ceil(15 + 0.5 * (n_boarding + n_alighting))
         return duration
 
 
@@ -49,13 +53,16 @@ class RSBusManager(BusManager):
         """Sets the stop durations based on requests / waiting passengers"""
         for bus in self.buses.values():
             if bus.is_at_stop():
-                # so we don't set it while it is at the stop
-                return
+                duration = self.compute_dynamic_dwell_time(bus)
+                bus.set_stop_duration(duration)
             elif bus.next_stop and bus.next_stop_distance < 60:
                 # if nobody is boarding or alighting, the dynamic dwell time will default to 15 seconds
                 # if this is the case, set it to 0 instead
                 duration = self.compute_dynamic_dwell_time(bus)
                 if duration != 15:
-                    bus.set_stop_duration(duration)
+                    continue
                 else:
+                    print(
+                        "Setting stop duration to 0 for bus ", bus.id, " at stop ", bus.next_stop_id
+                    )
                     bus.set_stop_duration(0)

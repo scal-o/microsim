@@ -16,6 +16,11 @@ class Bus:
         # passengers info
         self._passengers = []
         self._passengers_updated = -1
+        self._passengers_before_stop = []
+        self._passengers_before_stop_updated = -1
+
+        self._alighting = 0
+        self._boarding = 0
 
         # bus status info
         self._stopped = False
@@ -24,6 +29,7 @@ class Bus:
         # stop duration control
         # prevents updating the stop duration multiple times for the same stop
         self._duration_set_for = None
+        self._last_duration = 0
 
         # next tls info
         self._next_tls = None
@@ -37,6 +43,17 @@ class Bus:
 
         self._stopped_updated = self.ctx.curr_step
         return self._stopped
+
+    def update(self):
+        """Method to update the bus info, should be called every step"""
+
+        # we update the next stop and passengers info every step so it is always up to date when we need it
+        self.next_stop
+        self.next_tls
+        self.passengers
+        self.passengers_before_stop
+        self.n_alighting
+        self.n_boarding
 
     @property
     def next_stop(self) -> traci._vehicle.StopData | None:
@@ -87,17 +104,28 @@ class Bus:
         return self._passengers
 
     @property
+    def passengers_before_stop(self) -> list[str]:
+        if not self.is_at_stop():
+            if self._passengers_before_stop_updated < self.ctx.curr_step:
+                self._passengers_before_stop = traci.vehicle.getPersonIDList(self.id)
+
+        self._passengers_before_stop_updated = self.ctx.curr_step
+        return self._passengers_before_stop
+
+    @property
     def n_alighting(self) -> int:
         """Returns number of persons alighting from the bus at the next stop (0 if no next stop)"""
 
         if not self.next_stop:
             return 0
 
-        # we then check the travel stage of every person, and their destination
-        stages = [traci.person.getStage(p, 0) for p in self.passengers]
-        alighting = [s for s in stages if s.destStop == self.next_stop_id]
+        if not self.is_at_stop():
+            # we then check the travel stage of every person, and their destination
+            stages = [traci.person.getStage(p, 0) for p in self.passengers]
+            alighting = [s for s in stages if s.destStop == self.next_stop_id]
+            self._alighting = len(alighting)
 
-        return len(alighting)
+        return self._alighting
 
     @property
     def n_boarding(self) -> int:
@@ -106,17 +134,36 @@ class Bus:
         if not self.next_stop:
             return 0
 
-        return traci.busstop.getPersonCount(self.next_stop_id)
+        if not self.is_at_stop():
+            self._boarding = traci.busstop.getPersonCount(self.next_stop_id)
+        else:
+            self._boarding = len(set(self.passengers) - set(self.passengers_before_stop))
+
+        return self._boarding
 
     def set_stop_duration(self, duration: float) -> None:
         """Sets the duration of the next stop of the bus (does nothing if no next stop)"""
 
         # sets the bus stop duration and freezes it so it cannot be updated again for this stop
         # reset the cache so the next calls to self.next_stop will have the updated data
-        if self.next_stop and self._duration_set_for != self.next_stop_id:
-            traci.vehicle.setStopParameter(self.id, 0, "duration", str(duration))
-            self._next_stop_updated = -1
+        if (
+            self.next_stop and self._duration_set_for != self.next_stop_id
+        ) or duration > self._last_duration:
+            edge = traci.lane.getEdgeID(self.next_stop.lane)
+            startpos = self.next_stop.startPos
+            endpos = self.next_stop.endPos
+
+            traci.vehicle.setStop(
+                self.id, edgeID=edge, startPos=startpos, pos=endpos, duration=duration
+            )
+
+            print(
+                f"Bus: {self.id}, stop: {self.next_stop_id}, alighting: {self.n_alighting}, boarding: {self.n_boarding}, duration: {duration}"
+            )
+
             self._duration_set_for = self.next_stop_id
+            self._last_duration = duration
+            self._next_stop_updated = -1
 
     @property
     def next_tls(self) -> tuple[str, int, float, int] | None:
