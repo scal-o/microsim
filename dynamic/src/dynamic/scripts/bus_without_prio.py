@@ -1,7 +1,8 @@
 import click
+from tqdm import tqdm
+
 from dynamic.bus_manager import DDTBusManager, RSBusManager
 from dynamic.manager import RunManager
-from tqdm import tqdm
 
 
 @click.command(name="dwell-time-simulation")
@@ -18,27 +19,38 @@ from tqdm import tqdm
     default="",
     help="Output directory for simulation results (will be created as a subdrectory of results/dyn. defaults to results/dyn/bus_<mode>).",
 )
-def dwell_time_simulation(mode: str, output_dir: str):
+@click.option(
+    "--num-runs",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help="Number of simulation runs to execute.",
+)
+def dwell_time_simulation(mode: str, output_dir: str, num_runs: int):
     if output_dir == "":
         output_dir = f"bus_{mode}"
 
-    # initialize the run manager with the correct output dir
-    with RunManager(output_prefix=output_dir) as ctx:
-        if mode == "ddt":
-            buses = DDTBusManager(ctx)
-        else:
-            buses = RSBusManager(ctx)
+    for run_idx in range(num_runs):
+        run_output_dir = f"{output_dir}/run_{run_idx + 1}"
 
-        print(
-            "Starting simulation with mode: ",
-            "dynamic dwell time" if mode == "ddt" else "request stops",
-        )
+        # initialize the run manager with the correct output dir
+        with RunManager(output_prefix=run_output_dir) as ctx:
+            if mode == "ddt":
+                buses = DDTBusManager(ctx)
+            else:
+                buses = RSBusManager(ctx)
 
-        for i in tqdm(range(3600), desc="Running SUMO"):
-            ctx.step()
+            print(
+                "Starting simulation with mode: ",
+                "dynamic dwell time" if mode == "ddt" else "request stops",
+                f"(run {run_idx + 1}/{num_runs})",
+            )
 
-            # update the bus lists
-            buses.update_buses()
+            for _ in tqdm(range(3600), desc=f"Running SUMO (run {run_idx + 1}/{num_runs})"):
+                ctx.step()
 
-            # set the stop durations
-            buses.set_stops_duration()
+                # update the bus lists
+                buses.update_buses()
+
+                # set the stop durations
+                buses.set_stops_duration()

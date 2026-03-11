@@ -69,7 +69,14 @@ class RunManager:
         """Simple method to start the simulation via traci"""
         sumo = "sumo-gui" if self.gui else "sumo"
         sumo = sumolib.checkBinary(sumo)
-        cmd = [sumo, "-c", str(self.sumocfg), "--output-prefix", str(self.output_prefix) + "/"]
+        cmd = [
+            sumo,
+            "-c",
+            str(self.sumocfg),
+            "--output-prefix",
+            str(self.output_prefix) + "/",
+            "--random",
+        ]
 
         try:
             traci.start(cmd)

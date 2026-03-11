@@ -14,28 +14,42 @@ from dynamic.tl_controller import TLSManager
     default="",
     help="Output directory for simulation results (will be created as a subdirectory of results/dyn. defaults to results/dyn/bus_ptp).",
 )
-def pt_prio_simulation(output_dir: str):
+@click.option(
+    "--num-runs",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help="Number of simulation runs to execute.",
+)
+def pt_prio_simulation(output_dir: str, num_runs: int):
     if output_dir == "":
         output_dir = "bus_ptp"
 
-    # initialize the run manager with the correct output dir
-    with RunManager(cfg="dynamic/configs/dyn_config_prio.sumocfg", output_prefix=output_dir) as ctx:
-        # initialize bus manager with request stops mode
-        buses = RSBusManager(ctx)
-        # initialize the traffic light controller for bus prioritization
-        tls_manager = TLSManager(junction_id="GS_60713745", context=ctx)
+    for run_idx in range(num_runs):
+        run_output_dir = f"{output_dir}/run_{run_idx + 1}"
 
-        print("Starting simulation with mode: public transport prioritization")
+        # initialize the run manager with the correct output dir
+        with RunManager(
+            cfg="dynamic/configs/dyn_config_prio.sumocfg", output_prefix=run_output_dir
+        ) as ctx:
+            # initialize bus manager with request stops mode
+            buses = RSBusManager(ctx)
+            # initialize the traffic light controller for bus prioritization
+            tls_manager = TLSManager(junction_id="GS_60713745", context=ctx)
 
-        for i in tqdm(range(3600), desc="Running SUMO"):
-            ctx.step()
+            print(
+                f"Starting simulation with mode: public transport prioritization (run {run_idx + 1}/{num_runs})"
+            )
 
-            # update the bus lists
-            buses.update_buses()
+            for _ in tqdm(range(3600), desc=f"Running SUMO (run {run_idx + 1}/{num_runs})"):
+                ctx.step()
 
-            # set the stop durations
-            buses.set_stops_duration()
+                # update the bus lists
+                buses.update_buses()
 
-            # update the tls manager
-            tls_manager.update_approaching_buses(list(buses.buses.values()))
-            tls_manager.step()
+                # set the stop durations
+                buses.set_stops_duration()
+
+                # update the tls manager
+                tls_manager.update_approaching_buses(list(buses.buses.values()))
+                tls_manager.step()
