@@ -260,8 +260,53 @@ In the figure #todo[inserire plot comparison spsa pcspsa] we can see that the we
 
 
 = Dynamic applications
+We are now tasked with the implementation of real-time traffi control measures to improve the performance of a bus line in the Aachen network. In particular, we are to study the influence of dynamic dwell times and request stops on the bus line's performance, and to implement a traffic light prioritization strategy at a critical junction along the bus route.
 
-The implementation of dynamic dwell times more closely reflects reality compared to fixed stop times. in reality, dwell times can vary significantly between stops, due to varying number of people boarding / alighting the bus, and also due to some random human behavior (think for example about people running for the bus which then waits for them, or people almost missing their stop that request the driver to open the door for them).
+The object of this study is the Bus Line #3 in Aachen. The line has a total of four stops: Hansemannplatz, Eurogress, Ehrenmal/Lousberg, and Ponttor. In the baseline scenario, the line runs on a fixed five-minutes schedule, with a fixed dwell time of 30 seconds at each stop, while the traffic lights along the route also operate on static, pre-timed signal plans.
+
+In reality, dwell times can vary significantly between tops, due to varying number of people boardinf or alighting the bus, and also due to the influence of random human behavior, making fixed dwell times a poor representaton of the real-world operations. The implementation of dynamic dwell times should therefore lead to a more accurate representation of the bus line's performance.
+
+Comparing different control strategies, such as dynamic dwell times and request stops, also allows us to compare their effectiveness in relation with other metric such as line travel times, reliability, fuel consumption and emissions. This can provide help identify the most effective measures for improving the performance of the bus line while minimizing its environmental impact.
+
+The implementation of these strategies is done via the TraCI python API for SUMO, allowing us to interact with the simulation in real time. In order to evaluate the impacts of each strategy, we will compare their results with the ones from a baseline "status quo" scenario, in which no real-time control measures are implemented. Each simulation will be replicated five times to account for the stochasticity of the simulator, and the results will be averaged across the replications to get a more accurate estimate of the strategies' performance.
+
+The details of each strategy and their implementation are described in the respective sections. Their results and impacts are then discussed in the @dyn:results[section].
+
+
+== Task 1: Dynamic Dwell Times
+The first strategy requires the implementation of dynamic dwell times (DDT) at the bus stops. The dwell time $t_"dwell"$ is calculated dynamically based on real-time passenger demand using the following formulation:
+$ t_"dwell" (s) = 15 + 0.5 dot (n_"board" + n_"alight") $
+where $n_"board"$ and $n_"alight"$ represent the number of passengers boarding and alighting the bus at the stop, respectively.
+#todo[insert ref to transit capacity and quality of service manual - formula aligns with empirical models etc etc]
+
+=== Implementation details
+The duration of the individual stops was set using a variety of TraCI's commands. As TraCI does not provide a direct way to check the number of passengers boarding and alighting the bus at each stop, we had to implement a custom logic to compute these values in real time.
+
+For the alighting passengers, we used `traci.vehicle.getPersonIDList` to retrieve the list of current passengers for each bus, and then used `traci.person.getStage` to get the indivudal travel stages. The number of alighting passengers was then computed by counting the number of passengers whose destination stop matches the current (next) stop.
+
+For the boarding passengers, we hold a list of the passengers before the vehicle stops in the cache, and check it against the list of passengers during the stop. This allows us to dynamically increase the dwell time if passengers appear at the bus stop after the bus has already stopped, compared to a static check at the start of the stop duration.
+
+The stop duration itself is set using the `traci.vehicle.setStop` method.
+
+== Task 2: Request Stops
+The second strategy requires the implementation of request stops (RS) on top of the dynamic dwell times. A request stop is a stop that the bus will only serve if there are passengers waiting to board or alight at that stop. If there are no passengers, the bus will skip the stop, leading to potential reductions in travel time and fuel consumption.
+
+=== Implementation details
+The implementation of request stops builds upon the dynamic dwell times logic, as we already have a way to compute the number of boarding and alighting passengers at each stop. The main difference is that we need a way to compute the number of boarding passengers before the bus reaches the stop, in order to decide whether to stop or not. Therefore, we need a method to check for the presence of passengers waiting at the stop, and a method to check the bus distance from the stop to decide when to perform this check.
+
+For the bus distance from the stop, we use the `traci.vehicle.getDrivingDistance` method, which allows us to retrieve the distance of the bus from a specific point on the network. The exact edge and position of the bus stop are instead retrieved via the `traci.vehicle.getStops` method.
+
+When this distance is lower than 60m, we than check the number of waiting persons at the bus stop with the `traci.busstop.getPersonCount` method, which allows us to retrieve the number of passengers waiting at a specific stop. If there are passengers waiting, the bus will proceed to stop as usual, while if there are no passengers, it will skip the stop and continue on its route.
+
+The stop skipping is ensured by our use of the `traci.vehicle.setStop` method, which ensures the stop is canceled from the vehicle route. In earlier itera
+tions, we tried to set the stop duration via `traci.vehicle.setStopParameter`, which instead lead to inconsistent results (i.e. buses stopping for zero seconds).
+
+The dwell time is then computed at the bus stop as in the previous strategy, allowing late passengers to board the bus and count towards the total dwell time.
+
+
+== Task 3: Public Transport Prioritization
+==  results <dyn:results>
+
 
 However, dynamic dwell times also mean that the total travel time of the bus can vary significantly, making timetables inaccurate: this is one of the many reasons behind the --- of digital timetables at modern bus stops, which can show a more accurate estimate of the bus ETA compared to fixed timetables which can only take into consideration an average of the historical data.
 On the environmental side, at least in our simulation, dynamic dwell times lead to a general reduction of the idle time of the bus, therefore causing a reduction in fuel consumption (and so of the emission of pollutants and co2).
