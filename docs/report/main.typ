@@ -305,6 +305,57 @@ The dwell time is then computed at the bus stop as in the previous strategy, all
 
 
 == Task 3: Public Transport Prioritization
+The third strategy involves the implementation of a real-time Public Transport Prioritization (PTP) logic at a critical junction along the bus route (Krefelder Straße / Monheimsallee). The goal of PTP is to minimize the delay experienced by the bus at traffic signals, which is often one of the main sources of delay for urban transit. #todo[ref]
+
+A naive approach to PTP would involve granting "absolute priority" to approaching buses. However, while absolute priority mechanisms significantly reduce transit delays, they also introduces cycle deviation, potentially leading to the disruption of overall traffic flow and coordinated signal timings. 
+
+To prevent traffic flow degradation, we are tasked to implement a strategy to avoid bus delays and compensate for the opposing traffic streams. Our implementation approach is composed of two primary modules: an Active Prioritization module and an Offset Recovery module. Each of them is described in detail in the following sections, after a brief overview of the junction and of the baseliine scenario.  
+
+=== The Krefelder Straße Junction
+An aerial view of the junction (as taken from the SUMO interface) can be seen in #todo[insert figure]. The object of our analysis is the junction in the top right of the figure, which is the one located on the bus route. The junction is a four-leg signalized intersection. In the baseline scenario, the traffic light operates on a fixed cycle, with three active phases (internal names used in the rest of the document in brackets):
+- a phase serving the primary cross-traffic (Krefelder Straße) [major phase]
+- a short left-turn phase for turning vehicles (Krefelder Straße to Ludwigsallee) [major-left phase]
+- a bus phase for the transit corridor (Monheimsallee) [bus phase]
+
+The length of the fixed signal plan is 90 seconds, with a fixed green time of 38 seconds for the major phase, 6 seconds for the major-left phase, and 37 seconds for the bus phase. The three active phases are separated by standard 3-second "interstage" (yellow/all-red) clearance intervals. 
+
+A peculiarity of this junction is its tight coupling with the neighboring one (located in the bottom left of the figure). In the baseline scenarios, their signal plans are synchronized to allow for smooth transit along the major corridor (Krefelder Straße). This means that any significant deviation from the fixed signal plan at one of the junctions (e.g. due to granting absolute priority to the bus) would lead to a disruption of the coordinated signal timings, causing significant delays for both transit and private vehicles at both junctions. Therefore, our PTP strategy needs to be designed in a way that minimizes the impact on the overall signal coordination, while still providing effective prioritization for the bus.
+
+Another important aspect to consider is the presence of a bus stop located directly within the signal approach zone, which introduces additional uncertainty in the bus's ETA at the stopline, as this strategy keeps building upon the dynamic dwell times logic (inclusive of the request stops). 
+
+=== Prioritization logic overview
+A general overview of the prioritization logic is shown in #todo[insert figure of the complete diagram]. The logic is composed of two main modules: an Active Prioritization (AP) module, which is responsible for granting priority to the bus when it is approaching the junction, and an Offset Recovery (OR) module, which is responsible for resyncing the traffic light with its master cycle after granting priority to the bus.
+
+The detection algorithm monitors a 200-meter approach zone to detect the presence of the bus (before the bus stop). Once a bus is detected and its dynamic dwell time is calculated and assigned, the algorithm delegates control of the traffic light signal to the Active Prioritization module, which evaluates the bus's ETA at the stopline and the current traffic light state to decide how to manage the signal phases and grant priority to the bus. 
+If no bus is detected, the Offset Recovery module is responsible for resyncing the traffic light with its master cycle, by applying a recovery strategy that systematically compresses the bus phases over the next cycles to safely bring the junction back into coordination. This specific behavior was implemented because early testing showed that green time compensation without re-syncing still lead to spillover and queue build-up for the cross-traffic.
+
+
+==== Detection step
+The detection step logic is displayed in #todo[insert detection step diagram]. The objective of the detection step is to detect the bus and estimate an arrival time window to facilitate the prioritization operations. 
+
+The actual detection is delegated to a "virtual detector" situated approximately 200 meters from the junction's stopline. By virtual detector, we mean that the detection does not rely on a physical induction loop (or similar sensors), but instead simulates the communication between vehicle and infrastructure typical of V2I systems. Thus, the bus (via TraCI) continuously communicates its state to the traffic light controller, allowing the controller to be aware of its speed, position, as well as of its status at the bus stop. 
+
+After the controller is made aware of the approximate duration of the dwell time at the stop, it uses an average approaching speed of 8.5 $m\/s$ and the dwell time to compute the bus's minimum and maximum travel time windows to the stopline, and then delegates further operations to the AP module.
+
+
+==== Active Prioritization Logic
+Once the bus's arrival time windows are predicted, the algorithm evaluates the current traffic light state and intervenes dynamically, based on the currently active phase (waiting for a bus or major phase if it currently s in an interstage phase). 
+
+===== Active phase: major
+If the active phase is the opposing major flow, the primary goal is to minimize disruption. The algorithm calculates the minimum time required to safely switch to the bus phase (clearance and interstage times). If the bus is still far away, the algorithm calculates a delay and artificially extends the major phase. This "Just-In-Time" switching maximizes the green time for private vehicles, allowing cross-traffic queues to dissipate before granting the green light exactly when the bus arrives. Conversely, if the bus is very close, an early green is triggered immediately (if minimum green times are respected).
+#todo[insert major phase diagram]
+
+===== Active phase: bus
+If the bus phase is already active, the logic evaluates if the bus will clear the intersection before the maximum green time expires. If not, it decides between two actions:
+1. If the bus is far away and there is enough time (e.g., the ETA is greater than the minimum cycle time minus 10 seconds), it inserts a reduced cycle: it drops the bus phase and cycles through the opposing phases, allowing the bus to catch up with the signal plan and then reopening for the bus when it is expected to arrive at the stopline (following the same "Just-In-Time" strategy applied in the major phase). This allows to minimize the disruption for the cross-traffic while still granting priority to the bus.
+2. Otherwise, it simply triggers a green extension to hold the phase until the bus clears.
+
+==== Offset Recovery
+If there is no bus in the detection range, the algorithm then checks for cycle deviation, meaning a drift of the traffic light out of sync with its master cycle due to previous prioritization interventions. If a deviation is detected, the Offset Recovery module is activated to systematically bring the traffic light back in sync with its master cycle. 
+
+The drift is computed by continuously tracking the master cycle timeline (ideal timeline) and comparing it to the current active phase and time. The recovery strategy is simple, and is based on a systematic reduction of the green time for the bus phase (up to a predefined maximum reduction of 25 seconds) until the cycle is in-sync with the master cycle. 
+
+
 ==  results <dyn:results>
 
 
