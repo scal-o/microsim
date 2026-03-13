@@ -25,6 +25,7 @@ class Bus:
         # bus status info
         self._stopped = False
         self._stopped_updated = -1
+        self._stop_start_time = -1
 
         # stop duration control
         # prevents updating the stop duration multiple times for the same stop
@@ -39,7 +40,13 @@ class Bus:
         """Returns whether the bus is currently at a stop or not"""
 
         if self._stopped_updated < self.ctx.curr_step:
+            was_stopped = self._stopped
             self._stopped = traci.vehicle.isAtBusStop(self.id)
+
+            if self._stopped and not was_stopped:
+                self._stop_start_time = self.ctx.curr_step
+            elif not self._stopped and was_stopped:
+                self._stop_start_time = -1
 
         self._stopped_updated = self.ctx.curr_step
         return self._stopped
@@ -144,6 +151,8 @@ class Bus:
     def set_stop_duration(self, duration: float) -> None:
         """Sets the duration of the next stop of the bus (does nothing if no next stop)"""
 
+        if not self.next_stop:
+            return
         # sets the bus stop duration and freezes it so it cannot be updated again for this stop
         # reset the cache so the next calls to self.next_stop will have the updated data
         if (
@@ -153,8 +162,11 @@ class Bus:
             startpos = self.next_stop.startPos
             endpos = self.next_stop.endPos
 
+            elapsed = self.ctx.curr_step - self._stop_start_time
+            remaining = max(0, duration - elapsed)
+
             traci.vehicle.setStop(
-                self.id, edgeID=edge, startPos=startpos, pos=endpos, duration=duration
+                self.id, edgeID=edge, startPos=startpos, pos=endpos, duration=remaining
             )
 
             print(
