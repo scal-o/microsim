@@ -138,7 +138,7 @@ where:
 / $V^(-1)$: inverse of the variance-covariance matrix
 
 Using this approach, the residuals are weighed individually by the inverse of their variance, down-weighing less reliable observations such as measurements from sensors on low-flow links, which as stated before exhibit higher relative variance and are more susceptible to the simulator's stochastic noise.
-In an optimization perspective, this ensures that the calibration process is guided by high quality data points (i.e. sensors with high signal-to-noise ratios), thus reducing the impact of the simulator's stochasticity on the calbration process. 
+In an optimization perspective, this ensures that the calibration process is guided by high quality data points (i.e. sensors with high signal-to-noise ratios), thus reducing the impact of the simulator's stochasticity on the calbration process.
 
 This aligns with what we have done in terms of filtering out non statistically significant measurements: our approach can thus be seen as a simplification of a GLS weighting scheme, as we are removing measurements with high intrinsic variance from the GoF computation.
 
@@ -259,7 +259,7 @@ In the figure #todo[inserire plot comparison spsa pcspsa] we can see that the we
 
 
 
-= Dynamic applications
+= Dynamic applications <dyn:introduction>
 We are now tasked with the implementation of real-time traffi control measures to improve the performance of a bus line in the Aachen network. In particular, we are to study the influence of dynamic dwell times and request stops on the bus line's performance, and to implement a traffic light prioritization strategy at a critical junction along the bus route.
 
 The object of this study is the Bus Line #3 in Aachen. The line has a total of four stops: Hansemannplatz, Eurogress, Ehrenmal/Lousberg, and Ponttor. In the baseline scenario, the line runs on a fixed five-minutes schedule, with a fixed dwell time of 30 seconds at each stop, while the traffic lights along the route also operate on static, pre-timed signal plans.
@@ -349,58 +349,67 @@ If the active phase is the opposing major flow, the primary goal is to minimize 
 If the bus phase is already active, the logic evaluates if the bus will clear the intersection before the maximum green time expires. If not, it decides between two actions:
 1. If the bus is far away and there is enough time (e.g., the ETA is greater than the minimum cycle time minus 10 seconds), it inserts a reduced cycle: it drops the bus phase and cycles through the opposing phases, allowing the bus to catch up with the signal plan and then reopening for the bus when it is expected to arrive at the stopline (following the same "Just-In-Time" strategy applied in the major phase). This allows to minimize the disruption for the cross-traffic while still granting priority to the bus.
 2. Otherwise, it simply triggers a green extension to hold the phase until the bus clears.
+#todo[insert bus phase diagram]
 
 ==== Offset Recovery
 If there is no bus in the detection range, the algorithm then checks for cycle deviation, meaning a drift of the traffic light out of sync with its master cycle due to previous prioritization interventions. If a deviation is detected, the Offset Recovery module is activated to systematically bring the traffic light back in sync with its master cycle. 
 
 The drift is computed by continuously tracking the master cycle timeline (ideal timeline) and comparing it to the current active phase and time. The recovery strategy is simple, and is based on a systematic reduction of the green time for the bus phase (up to a predefined maximum reduction of 25 seconds) until the cycle is in-sync with the master cycle. 
+#todo[insert offset recovery diagram]
 
 
-==  results <dyn:results>
+=== Results and Performance Evaluation <dyn:results>
+In the subsequent sections, we analyze the results of the implemented strategies in terms of their impact on average dwell times, travel times and reliability, fuel consumption and emissions. The simulated scenarios are referred to as:
+- SQ: baseline scenario (status quo) with fixed dwell times and no prioritization
+- DDT: scenario with dynamic dwell times
+- RS: scenario with dynamic dwell times and request stops
+- PTP: scenario with dynamic dwell times, request stops and public transport prioritization
+
+We will first focus on the impact of the implementation of dynamic dwell times and request stops, and subsequently compare these results with the ones from the PTP scenario.
+
+As stated in @dyn:introduction, the results presented in this section represent the aggregate performance of the four simulated scenarios across five runs using random seeds, to isolate the impact of the proposed strategies from the simulator's intrinsic noise.
+
+==== Dwell times and travel time
+The implementation of dynamic dwell times makes the simulated scenarios more realistic, introducing stochastic elements related to the actual passenger demand. The average dwell times of the DDT, RS and SQ scenarios are shown in #todo[insert avg dwell times]: in the DDT scenario, we have an average dwell time reduction of around 40% compared to the status quo (from 30 seconds to 16-18, depending on the specific bus stop). 
+The implementation of request stops further reduces the average dwell time, especially at the stops with lower passenger activity (as, for example, the bus stop number 4), where the bus can skip the stop entirely.
+
+While dynamic dwell times do lead to a slight reduction of the bus travel time, as seen in #todo[insert travel time distribution plot], their impact on the line's reliability, quantified as the variability of the travel times, is negligible. The implementation of request stops also does not lead to significant improvements in this aspect.
+
+This suggests that the travel time variance in this corridor is mainly driven by infrastructure-induced delays, such as non-coordinated traffic signal timings and congestion.
 
 
-However, dynamic dwell times also mean that the total travel time of the bus can vary significantly, making timetables inaccurate: this is one of the many reasons behind the --- of digital timetables at modern bus stops, which can show a more accurate estimate of the bus ETA compared to fixed timetables which can only take into consideration an average of the historical data.
-On the environmental side, at least in our simulation, dynamic dwell times lead to a general reduction of the idle time of the bus, therefore causing a reduction in fuel consumption (and so of the emission of pollutants and co2).
-So: travel time generally down, reliability up
+==== Environmental impact 
+The reduction in dwell and travel times is directly reflected in the environmental performance of the bus line. As shown in #todo[insert fuel plot], the average fuel consumption per trip decreases from 1.05L in the SQ scenario to 1.0L in the DDT scenario ( a 5% reduction), and further to 0.96L in the RS scenario (a 10% reduction compared to SQ). 
+
+The emissions of pollutants and green house gases also show a similar, more pronounced downward trend, as shown in #todo[insert emission plot base]: 
+- Average CO2 emissions decrease by 5% in the DDT scenario and by 8% in the RS one; 
+- Average CO emissions decrease by 13% in the DDT scenario and by 18% in the RS one; 
+- Average NOx emissions decrease by 14% in the DDT scenario and by 20% in the RS one. 
+
+The reduction in pollutants such as CO and NOx is particularly significant: while CO2 emissions are almost directly proportional to fuel consumption, CO and NOx emissions show a higher sensitivity to the actual engine operation. This behavior is simulated by SUMO's default PHEMlight emissions model, which accounts for this by assigning different emission factors to different engine states (e.g., idling, cruising, accelerating). The implementation of DDT leads to a reduction in the idle time of the bus, and the RS system also reduces the number of accelerations to cruise speed after the bus stops, which appear to be the most emission-intensive operational states.
+
+==== Effectiveness and trade-offs of Public Transport Prioritization
+In order to highlight the effectiveness of the PTP strategy in reducing bus delays at the Krefelder Straße junction, we compared the behavior of buses to those in the SQ scenario by means of time-space diagrams, which show the position of the bus along its route over time. The diagrams shown in this section represent the position of buses and personal vehicles as resulted from the first SQ and PTP simulations. 
+
+As shown in #todo[insert time-space diagram for sq], the bus incurs in several delays at the traffic stop (#todo[insert zoom]) due to the non-prioritized traffic light. 
+
+Our custom strategy, whose results can be seen in #todo[insert time-space diagram for PTP], effectively eliminates these delays, as shown in the smooth bus trajectory lines. This highlights the effectiveness of our prioritization strategy. 
+
+The benefits to the bus line, however, have to be weighed against the potential disruption to the overall traffic flow at the junction. A first empirical observation showed no apparent spillover effects or congestion caused by the dynamic traffic light logic. A more quantitative analysis (#todo[insert crossing/corridor trt]) of the phenomenon shows an average travel time increase for private vehicles in the crossing stream of roughly 8s compared to the SQ scenarios, while the average travel time for the bus is reduced by around 20s. Private vehicles in the bus corridor also benefit from an average travel time reduction of around 10s. 
+
+This trade-off needs to be taken in consideration when giving an overall --- of the PTP scenario. 
 
 
-Request stops aim to reduce travel times (and idle times) even further as useless stops are skipped directly (while in the ddt scenarios we still stopped for around 15 seconds at each stop, even if nobody needed to board or alight).
-Should I talk about the technical difficulties of the implementation? E.g. understanding when to compute the number of people alighting, boarding etc
+==== Comparison of active traffic control vs ddt and rs
+The implementation of active traffic control via PTP yields significant improvements in bus line performance, effectively addressing the infrastructure-induced limits of the DDT and RS scenarios.
 
-In general, time travel reduction due to sometimes skipping one of the stops -> the one with fewer requests.
-This should also lead to a reduction of fuel consumption and emisisons compared to ddt -> understand why it is not shown in the graphs
+As the active control is implemented on top of the RS scenario, the average dwell times remain consistent (small differences due to the simulator's intrinsic stochasticity), while the travel time distrbution #todo[insert travel time distr with ptp] highlights several improvements: 
+- Distinctly lower mean and median travel times compared with to the other scenarios (~15s reduction);
+- Consistent reduction in the number of outliers (as shown by the much shorter tails on both ends of the distribution);
+- Drastic reduction in distribution variance.
 
-What I need to do is run the simulation maybe like 4-5 times and then average the results
-Violin plots should be perfect for this
+This results in a major improvement to the reliability of the bus line.
 
-
-Public transport prioritization: application to a single junction in the whole network -> if this has good results, think about what would happen with multiple implementations across the network.
-
-Analyze the base program to understand the available phases and how we can play around with them:
-- phase bus
-- phase "major" -> should probably call sidestream or something
-- phase "major-left" -> people that need to turn
-- interstage
-
-We place a detector far enough (considering that there is a bus stop before the tl -> bad design) and we try to account for its stop time (V2I hypothesis). After the bus decides if it is going to stop or not, than we apply the logic:
-- if phase bus
-  - if the bus makes it before the end of the max green, do nothing
-  - otherwise,
-    - if we have enough time to run a quick cycle (min green times etc) -> do that
-    - otherwise, extend green time
-- otherwise,
-  - if phase is not major
-    - wait
-  - otherwise,
-    - try to extend the major phase as long as possible to avoid disrupting the flow and only change when the bus is approaching 8allowing for a bit of time to let the queue dissipate
-
-Instead of a simple "green time compensation" mechanism, we are going to implement a system that brings the tl back in sync with the adjacent one -> as we found empirically that prioritization would cause spillover and queues there due to people unable to occupy the junction in time.
-This is done by extending the major phase time and reducing the duration of the bus phase to bring them back in sync.
-
-Very good results: significant reduction in travel times already with just one prioritized traffic light. Good reason to try and implement this in other junctions and for other bus lines as well, good pilot project.
-
-
-
-
-
-
+The environmental benefits are also significant and show incremental improvements over the previous scenarios #todo[insert fuel / emissions ptp]: average fuel conumption is reduced by 14% compared to SQ at 0.91L per trip, while average pollutant emissions show consistent reductions of 14% with respect to CO2 and of 25% with respect to CO and NOx. 
+  
+While these results are already impressive, we note that this performance gains are achieved by prioritizing a single junction on the bus route. The benefits of an active traffic control strategy could be compounded if implemented across multiple junctions or successive signalized intersections on the bus route course. This would help further reduce absolute travel times while at the same time increasing the reliability of the line and improving its environmental (and economic) performance.
